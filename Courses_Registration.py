@@ -8,6 +8,9 @@ import shutil
 import os
 import uuid
 from datetime import datetime, timedelta
+import math
+from fastapi.responses import JSONResponse
+#####******courses_dict is not a dictionary it is a list of tuples
 # Load CSV files
 course_list_path = "/home/bmt.lamar.edu/mpolineni/Latest_Class_Schedule.csv"         #'C:\\Users\\Mahesh\\Downloads\\CS_Class_Schedule.csv'   Replace with your actual path
 course_prereq_path = '/home/bmt.lamar.edu/mpolineni/course_prerequisites.csv'  # Replace with your actual path
@@ -74,6 +77,23 @@ def math_sections(semester):
             # Append each CRN
             result[key].append(crn)
     return result
+
+
+def multiple_sections(filtered_courses, semester):
+    sections_dict = {}
+    for course in filtered_courses:
+        for code, name, course_semester, part_of_term, mode, crn in courses_dict:
+            if course == code and course_semester.replace(" ", "").lower() == semester.lower():
+                if code not in sections_dict:
+                    sections_dict[code] = {}  
+                sections_dict[code][crn] = {
+                    'course_title': name,
+                    'semester_offered': course_semester,
+                    'part_of_term': part_of_term,
+                    'mode': mode
+                }
+    return sections_dict
+
 
 # Assume course_dict is defined globally (outside the function)
 def get_selected_courses(course_keys,semester):
@@ -620,6 +640,11 @@ def multipleCourses(completed_courses,incomplete_courses,filtered_courses,semest
         if (len(tuples[1])>1):
             tuples = (tuples[0], [item for item in tuples[1] if item in filtered_courses.keys()])
             completely_elegible_courses[f"{index}. {tuples[0]} credits required from: "]=get_selected_courses(tuples[1],semester)
+    for tuples in incomplete_courses:
+        if len(tuples[1])>1:
+            for key in tuples[1]:
+                if key in filtered_courses:
+                    del filtered_courses[key]
     return completely_elegible_courses
 
 
@@ -665,6 +690,24 @@ def degree_process_time(text):
 
 
 
+def pre_req_comments(filtered_courses):
+    for key in filtered_courses:
+        for course in prereq_dict:
+            if key == course:
+                comments = prereq_dict[key].get("comments", "-")
+                usually_offered = prereq_dict[key].get("usually_offered_semseter", "-")
+                
+                # Replace NaN values with "-"
+                if isinstance(comments, float) and math.isnan(comments):
+                    comments = "-"
+                if isinstance(usually_offered, float) and math.isnan(usually_offered):
+                    usually_offered = "-"
+
+                filtered_courses[key]["comments"] = comments
+                filtered_courses[key]["usually_offered_semseter"] = usually_offered
+    return filtered_courses
+
+
 async def main(path):
     pdf_file = path  # <-- adjust path
     print("🔄 Reading DegreeWorks PDF...")
@@ -674,7 +717,7 @@ async def main(path):
 
 
     text=text.replace("1 Class", "3 Credits")
-    degree_process_time(text)
+    # degree_process_time(text)
 
   
     completed = extract_completed_courses_robust(text)
@@ -736,7 +779,10 @@ async def course_suggestion(degree_audit,term):
                     elegible_prereq_courses.append(course)
 
     # Filter courses offered in the input semester
-    filtered_courses,semester = filter_courses_by_semester(courses_dict, semester,elegible_prereq_courses)
+    try:
+        filtered_courses,semester = filter_courses_by_semester(courses_dict, semester,elegible_prereq_courses)
+    except ValueError as e:
+        return JSONResponse(status_code=400, content={"message": str(e)})
     # print(f"Courses offered in {semester}: \n{filtered_courses}")
 
 
@@ -750,7 +796,14 @@ async def course_suggestion(degree_audit,term):
     # print(math_sections(semester))
     # print(prereq_dict)
     multiple_courses_dict=multipleCourses(completed_courses,incomplete_groups,filtered_courses,semester)
-    return final_courses_dictionary(filtered_courses,multiple_courses_dict)
+    filtered_courses=(pre_req_comments(filtered_courses))
+    # print(multiple_sections(filtered_courses,semester))
+    sections=multiple_sections(filtered_courses,semester)
+    # print(final_courses_dictionary(filtered_courses,multiple_courses_dict))
+    final_courses_dictionary(filtered_courses,multiple_courses_dict)
+    result=final_courses_dictionary(filtered_courses,sections)
+    print(result)
+    return result
 
     # return (multipleCourses(completed_courses,incomplete_groups,filtered_courses))
 

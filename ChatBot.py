@@ -113,7 +113,7 @@ def enrich_chunks_with_metadata(chunks, llm):
     )
     tagger_prompt = PromptTemplate.from_template(
         "You are a classifier. Classify the content into one of the categories: "
-        "['Degree Requirements', 'Course Info', 'Policies', 'Registration'].\n\n"
+        "['Degree Requirements', 'Course Info', 'Policies', 'Admissions','Scholarships','Undergrad_Research'].\n\n"
         "Chunk:\n{chunk}"
     )
     question_prompt = PromptTemplate.from_template(
@@ -145,6 +145,12 @@ def enrich_chunks_with_metadata(chunks, llm):
     return enriched_chunks
 
 
+def add_documents_to_the_db(splitter,chunks,vector_store,metadata_llm):
+    splitter.split_documents(chunks)
+    enriched_chunks=enrich_chunks_with_metadata(chunks,metadata_llm)
+    vector_store.add_documents(enriched_chunks)
+    vector_store.persist()
+    return 
 
 
 def webBaseLoader():
@@ -182,7 +188,13 @@ clarify_prompt = PromptTemplate(
     )
 )
 
-system_msg = SystemMessagePromptTemplate.from_template(f"you are an academic advisor for Undergrad students. You are been querying on {datetime.datetime.now()}.Make sure to display the source of the chunks too.")
+system_msg = SystemMessagePromptTemplate.from_template(f"you are an Computer Science department advisor for Undergrad students.You are been querying on {datetime.datetime.now()}."
+"Make sure to display only one source which is most relative to the response from the chunks and also make sure do not display any source for which does not have or for general questions like Hello e.t.c"
+" If you don't have any information or data politely say refer to youe academic/department advisor, as i don't have the information/If it related to admissions , say to contact admissions office along with the response"
+"always do conversation in English"
+"If the query is related to CS Faculty/Staff or faculty just say the user to follow the following link - 'https://www.lamar.edu/arts-sciences/computer-science/faculty-staff/'."
+"If the query is about admissions act as a Admission department faculty"
+"For every response say the student to confirm with the departmrnt")
 
 
 human_msg = HumanMessagePromptTemplate.from_template(
@@ -209,17 +221,28 @@ load_dotenv()
 # degree_requirements_docs=csv_loader("/home/bmt.lamar.edu/mpolineni/data/degree_requirements.csv")
 fall_calender = csv_loader("/home/bmt.lamar.edu/mpolineni/data/fall_calender.csv","https://www.lamar.edu/events/academic-calendar-listing.html")
 summer_calender = csv_loader("/home/bmt.lamar.edu/mpolineni/data/summer_calender.csv","https://www.lamar.edu/events/academic-calendar-listing.html")
-prohibition = text_loader("/home/bmt.lamar.edu/mpolineni/Prohibition.txt","https://www.lamar.edu/students/_files/documents/student-success/lu-academic-policies.pdf")
-reg_drop_late = text_loader("/home/bmt.lamar.edu/mpolineni/Reg-drop-late.txt","https://www.lamar.edu/students/registrar/registration/")
-undergrad_policies = text_loader("/home/bmt.lamar.edu/mpolineni/undergrad-policies.txt","https://catalog.lamar.edu/undergraduate-academic-policies-procedures/")
-
+prohibition = text_loader("/home/bmt.lamar.edu/mpolineni/data/Prohibition.txt","https://www.lamar.edu/students/_files/documents/student-success/lu-academic-policies.pdf")
+reg_drop_late = text_loader("/home/bmt.lamar.edu/mpolineni/data/Reg-drop-late.txt","https://www.lamar.edu/students/registrar/registration/")
+undergrad_policies = text_loader("/home/bmt.lamar.edu/mpolineni/data/undergrad-policies.txt","https://catalog.lamar.edu/undergraduate-academic-policies-procedures/")
+undergrad_research=text_loader("/home/bmt.lamar.edu/mpolineni/data/undergrad_research.txt","https://www.lamar.edu/research/index.html")
+admission_process=text_loader("/home/bmt.lamar.edu/mpolineni/data/admission_process.txt","https://www.lamar.edu/admissions/how-to-apply/index.html")
+# degrees_mode=text_loader("/home/bmt.lamar.edu/mpolineni/data/degrees_mode.txt","https://www.lamar.edu/academics/index.php")
+scholarships=text_loader("/home/bmt.lamar.edu/mpolineni/data/scholarships.txt","https://www.lamar.edu/financial-aid/scholarships/index.html")
+cs_degrees=text_loader("/home/bmt.lamar.edu/mpolineni/data/cs_degrees.txt","https://www.lamar.edu/arts-sciences/computer-science/degrees/undergraduate/index.html")
+contact_info=text_loader("/home/bmt.lamar.edu/mpolineni/data/contact_info.txt","https://www.lamar.edu/arts-sciences/computer-science/contact-us.html")
+general=text_loader("/home/bmt.lamar.edu/mpolineni/data/general.txt","https://catalog.lamar.edu/college-arts-sciences/computer-science/computer-science-bs/")
+facilities_resources=text_loader("/home/bmt.lamar.edu/mpolineni/data/facilities_resources.txt","https://www.lamar.edu/arts-sciences/computer-science/facilities/in")
+finincial_aid=text_loader("/home/bmt.lamar.edu/mpolineni/data/finincial_aid.txt","https://www.lamar.edu/financial-aid/financial-aid-handbooks/section-2/index.html")
+student_employment=text_loader("/home/bmt.lamar.edu/mpolineni/data/student_employment.txt","https://www.lamar.edu/arts-sciences/computer-science/employment/index.html")
+CIS=text_loader("/home/bmt.lamar.edu/mpolineni/data/cis.txt","https://www.lamar.edu/arts-sciences/computer-science/degrees/undergraduate/bs-cis.html")
+cybersecurity=text_loader("/home/bmt.lamar.edu/mpolineni/data/cybersecurity.txt","https://www.lamar.edu/arts-sciences/computer-science/degrees/undergraduate/bs-cybersecurity/index.html")
+game_development=text_loader("/home/bmt.lamar.edu/mpolineni/data/game_dev.txt","https://www.lamar.edu/arts-sciences/computer-science/degrees/undergraduate/bs-cybersecurity/index.html")
 
 docs=fall_calender
 docs.extend(summer_calender)
 docs.extend(prohibition)
 docs.extend(reg_drop_late)
 docs.extend(undergrad_policies)
-
 
 splitter = RecursiveCharacterTextSplitter(chunk_size=300, chunk_overlap=40)
 chunks = splitter.split_documents(docs)
@@ -234,7 +257,6 @@ metadata_llm=ChatOllama(model="mistral-small:latest",temperature=0.4)
     
 
 
-
 embeddings = OllamaEmbeddings(model="mxbai-embed-large")
 # embeddings = OpenAIEmbeddings(model="text-embedding-3-large")
 persist_directory="./updated_bs_data"
@@ -246,9 +268,11 @@ else:
     vector_store = Chroma.from_documents(documents=chunks, embedding=embeddings, persist_directory=persist_directory) #Remember chunks - updated Chunks
     vector_store.persist()
  
+# add_documents_to_the_db(splitter,game_development,vector_store,metadata_llm)
+# vector_store.delete(where={"source": "https://www.lamar.edu/financial-aid/financial-aid-handbooks/section-2/index.html"})
 
 # vector_store.add_documents(chunks_with_metadata)
-retriever = vector_store.as_retriever(search_type="similarity",search_kwargs={"k":4})
+retriever = vector_store.as_retriever(search_type="similarity",search_kwargs={"k":5}) #,"score_threshold": 0.75
 
 llm=ChatOllama(model="mistral-small:latest",temperature=0.4)
 # llm = ChatOpenAI(model_name="gpt-4",temperature=0.1)
@@ -269,13 +293,12 @@ llm=ChatOllama(model="mistral-small:latest",temperature=0.4)
 
 def user_chain():
 
-    memory = ConversationSummaryMemory(  
-    llm=llm,
-    memory_key="chat_history",
-    return_messages=True,
-    output_key="answer"
-    )
-
+    memory = ConversationBufferWindowMemory(
+    memory_key="chat_history",  # Key used in the chain
+    k=1,                        # Keep the last 2 messages
+    return_messages=True,        
+    output_key='answer'
+)
 
     qa_chain = ConversationalRetrievalChain.from_llm(
         llm=llm,    
