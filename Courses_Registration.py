@@ -81,7 +81,7 @@ def math_sections(semester):
 
 def multiple_sections(filtered_courses, semester):
     sections_dict = {}
-    for course in filtered_courses:
+    for course,details in filtered_courses.items():
         for code, name, course_semester, part_of_term, mode, crn in courses_dict:
             if course == code and course_semester.replace(" ", "").lower() == semester.lower():
                 if code not in sections_dict:
@@ -92,6 +92,36 @@ def multiple_sections(filtered_courses, semester):
                     'part_of_term': part_of_term,
                     'mode': mode
                 }
+        # if "credits required from:" in course:
+        #     print(course)
+        #     for multiple_courses,course_details in details.items():
+        #         for code, name, course_semester, part_of_term, mode, crn in courses_dict:
+        #             if multiple_courses == code and course_semester.replace(" ", "").lower() == semester.lower(): 
+        #                 if code not in sections_dict:
+        #                     sections_dict[code] = {}  
+        #                 sections_dict[code][crn] = {
+        #                     'course_title': name,
+        #                     'semester_offered': course_semester,
+        #                     'part_of_term': part_of_term,
+        #                     'mode': mode
+        #                 }
+    return sections_dict
+
+def gropus_multiple_sections(filtered_courses,semester):
+    sections_dict = {}
+    for course,details in filtered_courses.items():
+        if "credits required from:" in course:
+            for multiple_courses,course_details in details.items():
+                for code, name, course_semester, part_of_term, mode, crn in courses_dict:
+                    if multiple_courses == code and course_semester.replace(" ", "").lower() == semester.lower(): 
+                        if code not in sections_dict:
+                            sections_dict[code] = {}  
+                        sections_dict[code][crn] = {
+                            'course_title': name,
+                            'semester_offered': course_semester,
+                            'part_of_term': part_of_term,
+                            'mode': mode
+                        }
     return sections_dict
 
 
@@ -668,6 +698,13 @@ def final_courses_dictionary(filtered_courses,multiple_courses):
         filtered_courses[course_code]=course_details
     return filtered_courses
 
+def groups_final_courses_dictionary(groups,multiple_courses):
+    for course_code,course_details in multiple_courses.items():
+        for course in groups:
+            if course==course_code:
+                groups[course_code]=course_details
+    return groups
+
 def degree_process_time(text):
     pattern = r"\d{2}/\d{2}/\d{4}\s+\d{1,2}:\d{2}\s+(AM|PM)"
     degree_date_time = re.search(pattern, text)
@@ -735,33 +772,15 @@ async def main(path):
 async def course_suggestion(degree_audit,term):
     # Your main PDF parsing remains same
     completed_courses, incomplete_groups = await main(degree_audit) #"C:\\Users\\Mahesh\\Downloads\\AB28RZ25 worksheet.pdf
-    # print(completed_courses)
-
     completed_courses,incomplete_groups=mathCourses(completed_courses,incomplete_groups)
-    # print(completed_courses)
-    # # Create course dictionaries from CSV files
-    # print(f"Completed courses ({len(completed_courses)} found):")
-    # for c in completed_courses:
-    #     cr = f"{c['credits']:.1f}" if isinstance(c.get('credits'), (int, float)) else ""
-    #     print(f" - {c['subject']} {c['number']} | {c.get('title','')} | {c.get('grade','')} | {cr} | {c.get('term','')}")
-
     completed_courses = [
     c for c in completed_courses
     if not ((c['subject']+" "+c['number']) in ['COSC 1336', 'COSC 1337', 'COSC 2336'] and c.get('grade') not in ['A', 'B'])
     ]
 
-
-    # print(f"\nIncomplete groups ({len(incomplete_groups)}):")
-    # for credits, course_list in incomplete_groups:
-    #     print(f" - {credits} Credits in/from: {', '.join(course_list)}")
-
-    # semester = input("Enter the semester enrolling in : ")
     semester = term
 
 
-    # print("\nCourses that have pre-requisites and prerequisites are completed:")
-
-    # Build a set of completed course codes for fast lookup, format like "COSC 1336"
     completed_course_codes = {f"{c['subject']} {c['number']}" for c in completed_courses}
     elegible_prereq_courses=[]
     for credits, course_list in incomplete_groups:
@@ -777,6 +796,8 @@ async def course_suggestion(degree_audit,term):
                         elegible_prereq_courses.append(course)
                 else:
                     elegible_prereq_courses.append(course)
+    
+    print(completed_courses)
 
     # Filter courses offered in the input semester
     try:
@@ -785,33 +806,19 @@ async def course_suggestion(degree_audit,term):
         return JSONResponse(status_code=400, content={"message": str(e)})
     # print(f"Courses offered in {semester}: \n{filtered_courses}")
 
-
-    
-    # all_elegible_courses=[]
-    # for course_code, course_details in filtered_courses.items():
-    #     all_elegible_courses.append(course_code+" "+course_details['course_title'])
-        # print(f"Course Code: {course_code} - {course_details['course_title']}")
-        # print() 
-    # all_elegible_courses.append(multipleCourses(completed_courses,incomplete_groups,filtered_courses))
-    # print(math_sections(semester))
-    # print(prereq_dict)
     multiple_courses_dict=multipleCourses(completed_courses,incomplete_groups,filtered_courses,semester)
     filtered_courses=(pre_req_comments(filtered_courses))
     # print(multiple_sections(filtered_courses,semester))
-    sections=multiple_sections(filtered_courses,semester)
     # print(final_courses_dictionary(filtered_courses,multiple_courses_dict))
     final_courses_dictionary(filtered_courses,multiple_courses_dict)
+    sections=multiple_sections(filtered_courses,semester)
+    groups_sections=gropus_multiple_sections(filtered_courses,semester)
+    for course, course_details in filtered_courses.items():
+        if "credits required from:" in course:
+            filtered_courses[course]=groups_final_courses_dictionary(course_details,groups_sections)
+    # print(groups_sections)
     result=final_courses_dictionary(filtered_courses,sections)
-    print(result)
     return result
 
-    # return (multipleCourses(completed_courses,incomplete_groups,filtered_courses))
-
-    # print("\nCourses that have pre-requisites:")
-    # for credits, course_list in incomplete_groups:
-    #     for course in course_list:
-    #         if re.match(r"[A-Z]{4} \d{4}", course):
-    #             if course in prereq_dict:
-    #                 print(course)
 
 
