@@ -10,8 +10,43 @@ import uuid
 from datetime import datetime, timedelta
 import math
 from fastapi.responses import JSONResponse
+from MultiplePrerequisites import student_grades,is_eligible_for_course
 #####******courses_dict is not a dictionary it is a list of tuples
 # Load CSV files
+
+def sanitize_value(value):
+    """Convert NaN, inf, -inf, or empty strings to None."""
+    if isinstance(value, float):
+        if math.isfinite(value):
+            return value
+        else:
+            return None
+    if value in ("", " ", None, "nan", "NaN"):
+        return None
+    return value
+
+def course_active(result):
+    course_crn =[]
+    multiple_courses_crns=[]
+    for course,course_details in result.items():
+        if "credits required from" not in course:
+            for crn, crn_details in course_details.items():
+                print(crn_details)
+                if crn_details['active_ind']=='I' or crn_details['active_ind']=='C':
+                    course_crn.append(crn)
+            for item in course_crn:
+                del course_details[crn]
+        # if "credits required from" in course:
+        #     for course_num,details in course_details.items():
+        #         for crn,crn_details in details.items():
+        #             print(crn_details)
+        #             if crn_details['active_ind']=='I' or crn_details['active_ind']=='C':
+        #                 del details[crn]    
+    return result
+
+
+
+
 course_list_path = "/home/bmt.lamar.edu/mpolineni/Latest_Class_Schedule.csv"         #'C:\\Users\\Mahesh\\Downloads\\CS_Class_Schedule.csv'   Replace with your actual path
 course_prereq_path = '/home/bmt.lamar.edu/mpolineni/course_prerequisites.csv'  # Replace with your actual path
 
@@ -36,7 +71,9 @@ df_prereqs = pd.read_csv(course_prereq_path)
 def create_course_dictionary_from_df(df):
     course_dict = []
     for _, row in df.iterrows():
-        course_dict.append((row['Subject']+" "+str(row['Course']),row['Section_Title'],row['Term'],row['Part_of_Term'],row['SXRFIMODDesc'],row['CRN']))
+        if row['Active_Ind'] =='I' or row['Active_Ind'] =='C' or row['Campus_Code']=='AP':
+            continue
+        course_dict.append((row['Subject']+" "+str(row['Course']),row['Section_Title'],row['Term'],row['Part_of_Term'],row['SXRFIMODDesc'],row['CRN'],row['Begin_Time'],row['End_Time'],row['Faculty'],row['Avalailable_Seat'],row['Active_Ind']))
     return course_dict
 
 
@@ -60,12 +97,18 @@ def prerequisite_course_dictionary_from_df(df):
 courses_dict = create_course_dictionary_from_df(df_courses)
 prereq_dict = prerequisite_course_dictionary_from_df(df_prereqs)
 
+def prerequesites_dict():
+    prerequisites={}
+    for course,details in prereq_dict.items():
+        prerequisites[course]=details["prerequisites"]
+    return prerequisites
+
 
 def math_sections(semester):
     selected_codes = {"MATH 3370", "MATH 2414", "MATH 2318", "MATH 2413", "MATH 2311", "MATH 2312"}
     result = {}
 
-    for code, name, course_semester, part_of_term, mode, crn in courses_dict:
+    for code, name, course_semester, part_of_term, mode,crn,begin_time,end_time,faculty,available_seats,active_ind in courses_dict:
         # Match the desired course and semester
         if code in selected_codes and course_semester.replace(" ", "").lower() == semester:
             key = f"{code} {name}"  # e.g. "MATH 2311 Precalculus I (Parent)"
@@ -82,7 +125,7 @@ def math_sections(semester):
 def multiple_sections(filtered_courses, semester):
     sections_dict = {}
     for course,details in filtered_courses.items():
-        for code, name, course_semester, part_of_term, mode, crn in courses_dict:
+        for code, name, course_semester, part_of_term, mode,crn,begin_time,end_time,faculty,available_seats,active_ind in courses_dict:
             if course == code and course_semester.replace(" ", "").lower() == semester.lower():
                 if code not in sections_dict:
                     sections_dict[code] = {}  
@@ -90,7 +133,12 @@ def multiple_sections(filtered_courses, semester):
                     'course_title': name,
                     'semester_offered': course_semester,
                     'part_of_term': part_of_term,
-                    'mode': mode
+                    'mode': mode,
+                    'begin_time':sanitize_value(begin_time),
+                    'end_time':sanitize_value(end_time),
+                    'faculty':sanitize_value(faculty),
+                    'available_seats':sanitize_value(available_seats),
+                    'active_ind':active_ind
                 }
         # if "credits required from:" in course:
         #     print(course)
@@ -112,7 +160,7 @@ def gropus_multiple_sections(filtered_courses,semester):
     for course,details in filtered_courses.items():
         if "credits required from:" in course:
             for multiple_courses,course_details in details.items():
-                for code, name, course_semester, part_of_term, mode, crn in courses_dict:
+                for code, name, course_semester, part_of_term, mode,crn,begin_time,end_time,faculty,available_seats,active_ind in courses_dict:
                     if multiple_courses == code and course_semester.replace(" ", "").lower() == semester.lower(): 
                         if code not in sections_dict:
                             sections_dict[code] = {}  
@@ -120,7 +168,12 @@ def gropus_multiple_sections(filtered_courses,semester):
                             'course_title': name,
                             'semester_offered': course_semester,
                             'part_of_term': part_of_term,
-                            'mode': mode
+                            'mode': mode,
+                            'begin_time':sanitize_value(begin_time),
+                            'end_time':sanitize_value(end_time),
+                            'faculty':sanitize_value(faculty),
+                            'available_seats':sanitize_value(available_seats),
+                            "active_ind":active_ind
                         }
     return sections_dict
 
@@ -138,9 +191,9 @@ def get_selected_courses(course_keys,semester):
     """
     dicts={}
     for key in course_keys:
-        for code, name, course_semester, part_of_term, mode,crn in courses_dict:
+        for code, name, course_semester, part_of_term, mode,crn,begin_time,end_time,faculty,available_seats,active_ind in courses_dict:
             if key==code and course_semester.replace(" ", "").lower()==semester:
-                dicts[key]={'course_title':name,'semester_offered':course_semester,'part_of_term':part_of_term,'mode':mode}
+                dicts[key]={'course_title':name,'semester_offered':course_semester,'part_of_term':part_of_term,'mode':mode,'begin_time':sanitize_value(begin_time),'end_time':sanitize_value(end_time),'faculty':sanitize_value(faculty),'available_seats':sanitize_value(available_seats),'active_ind':active_ind}
     return dicts
 
 # def filter_courses_by_semester(courses_dict, semester_input):
@@ -625,9 +678,9 @@ def filter_courses_by_semester(courses_dict, semester_input, course_code_list):
     filtered_courses = {}
 
     for course_code in course_code_list:
-        for code, name, course_semester, part_of_term, mode,crn in courses_dict:
+        for code, name, course_semester, part_of_term, mode,crn,begin_time,end_time,faculty,available_seats,active_ind in courses_dict:
             if course_code ==code:
-                course_details = {'course_title':name,'semester_offered':course_semester,'part_of_term':part_of_term,'mode':mode}
+                course_details = {'course_title':name,'semester_offered':course_semester,'part_of_term':part_of_term,'mode':mode,'begin_time':sanitize_value(begin_time),'end_time':sanitize_value(end_time),'faculty':sanitize_value(faculty),'available_seats':sanitize_value(available_seats),'active_ind':active_ind}
                 if 'semester_offered' in course_details:
                     offered = course_details['semester_offered'].replace(" ", "").lower()
 
@@ -796,8 +849,6 @@ async def course_suggestion(degree_audit,term):
                         elegible_prereq_courses.append(course)
                 else:
                     elegible_prereq_courses.append(course)
-    
-    print(completed_courses)
 
     # Filter courses offered in the input semester
     try:
@@ -805,7 +856,6 @@ async def course_suggestion(degree_audit,term):
     except ValueError as e:
         return JSONResponse(status_code=400, content={"message": str(e)})
     # print(f"Courses offered in {semester}: \n{filtered_courses}")
-
     multiple_courses_dict=multipleCourses(completed_courses,incomplete_groups,filtered_courses,semester)
     filtered_courses=(pre_req_comments(filtered_courses))
     # print(multiple_sections(filtered_courses,semester))
@@ -818,6 +868,18 @@ async def course_suggestion(degree_audit,term):
             filtered_courses[course]=groups_final_courses_dictionary(course_details,groups_sections)
     # print(groups_sections)
     result=final_courses_dictionary(filtered_courses,sections)
+    grades= student_grades(completed_courses)
+    multiple_prereqs=prerequesites_dict()
+
+
+    for course,prereq_courses in multiple_prereqs.items():
+        if "and" in prereq_courses or "or" in prereq_courses:
+            eligible = is_eligible_for_course(course, multiple_prereqs,grades)
+            if eligible:
+                continue
+            elif course in result:
+                del result[course]
+    # result=course_active(result)
     return result
 
 
