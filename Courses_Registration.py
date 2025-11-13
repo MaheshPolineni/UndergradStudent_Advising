@@ -31,7 +31,6 @@ def course_active(result):
     for course,course_details in result.items():
         if "credits required from" not in course:
             for crn, crn_details in course_details.items():
-                print(crn_details)
                 if crn_details['active_ind']=='I' or crn_details['active_ind']=='C':
                     course_crn.append(crn)
             for item in course_crn:
@@ -39,7 +38,6 @@ def course_active(result):
         # if "credits required from" in course:
         #     for course_num,details in course_details.items():
         #         for crn,crn_details in details.items():
-        #             print(crn_details)
         #             if crn_details['active_ind']=='I' or crn_details['active_ind']=='C':
         #                 del details[crn]    
     return result
@@ -80,17 +78,22 @@ def create_course_dictionary_from_df(df):
 def prerequisite_course_dictionary_from_df(df):
     prereq_dict = {}
     for _, row in df.iterrows():
-        prereq = row['pre_requisite']
-        if isinstance(prereq, str) and prereq.strip():
-            prereq_dict[row['course_number']] = {
-                'course_title': row['course_name'],
-                'prerequisites': prereq,
-                'co_requisites': row['co_requisite'],
-                'passing_grade':row['passing_grade'],
-                'usually_offered_semseter':row['usually_offered_semester'],
-                'comments':row['comments']
-            }
+        # Get prerequisite and assign default if empty or NaN
+        prereq = row["pre_requisite"]
+        if not isinstance(prereq, str) or not prereq.strip():
+            prereq = "No prerequisite"
+
+        # Build the dictionary
+        prereq_dict[row['course_number']] = {
+            'course_title': row['course_name'],
+            'prerequisites': prereq,
+            'co_requisites': row['co_requisite'],
+            'passing_grade': row['passing_grade'],
+            'usually_offered_semester': row['usually_offered_semester'],
+            'comments': row['comments']
+        }
     return prereq_dict
+
 
 
 
@@ -129,19 +132,8 @@ def multiple_sections(filtered_courses, semester):
             if course == code and course_semester.replace(" ", "").lower() == semester.lower():
                 if code not in sections_dict:
                     sections_dict[code] = {}  
-                sections_dict[code][crn] = {
-                    'course_title': name,
-                    'semester_offered': course_semester,
-                    'part_of_term': part_of_term,
-                    'mode': mode,
-                    'begin_time':sanitize_value(begin_time),
-                    'end_time':sanitize_value(end_time),
-                    'faculty':sanitize_value(faculty),
-                    'available_seats':sanitize_value(available_seats),
-                    'active_ind':active_ind
-                }
+                sections_dict[code][crn] = details
         # if "credits required from:" in course:
-        #     print(course)
         #     for multiple_courses,course_details in details.items():
         #         for code, name, course_semester, part_of_term, mode, crn in courses_dict:
         #             if multiple_courses == code and course_semester.replace(" ", "").lower() == semester.lower(): 
@@ -164,22 +156,12 @@ def gropus_multiple_sections(filtered_courses,semester):
                     if multiple_courses == code and course_semester.replace(" ", "").lower() == semester.lower(): 
                         if code not in sections_dict:
                             sections_dict[code] = {}  
-                        sections_dict[code][crn] = {
-                            'course_title': name,
-                            'semester_offered': course_semester,
-                            'part_of_term': part_of_term,
-                            'mode': mode,
-                            'begin_time':sanitize_value(begin_time),
-                            'end_time':sanitize_value(end_time),
-                            'faculty':sanitize_value(faculty),
-                            'available_seats':sanitize_value(available_seats),
-                            "active_ind":active_ind
-                        }
+                        sections_dict[code][crn] = course_details
     return sections_dict
 
 
 # Assume course_dict is defined globally (outside the function)
-def get_selected_courses(course_keys,semester):
+def get_selected_courses(course_keys,semester,filtered_courses):
     """
     Returns a dictionary of courses that match the given list of course keys.
     
@@ -191,9 +173,11 @@ def get_selected_courses(course_keys,semester):
     """
     dicts={}
     for key in course_keys:
-        for code, name, course_semester, part_of_term, mode,crn,begin_time,end_time,faculty,available_seats,active_ind in courses_dict:
-            if key==code and course_semester.replace(" ", "").lower()==semester:
-                dicts[key]={'course_title':name,'semester_offered':course_semester,'part_of_term':part_of_term,'mode':mode,'begin_time':sanitize_value(begin_time),'end_time':sanitize_value(end_time),'faculty':sanitize_value(faculty),'available_seats':sanitize_value(available_seats),'active_ind':active_ind}
+        for course,details in filtered_courses.items():
+            if key==course:
+                for code, name, course_semester, part_of_term, mode,crn,begin_time,end_time,faculty,available_seats,active_ind in courses_dict:
+                    if key==code and course_semester.replace(" ", "").lower()==semester:
+                        dicts[key]=details
     return dicts
 
 # def filter_courses_by_semester(courses_dict, semester_input):
@@ -718,11 +702,10 @@ def multipleCourses(completed_courses,incomplete_courses,filtered_courses,semest
     #         for course in tuples[1]:
     #             if any(course == f"{n['subject']} {n['number']}" for n in completed_courses):
     #                 tuples[1].remove(course)   
-    #                 print(tuples[1])
     for index, tuples in enumerate(incomplete_courses, 1):
         if (len(tuples[1])>1):
             tuples = (tuples[0], [item for item in tuples[1] if item in filtered_courses.keys()])
-            completely_elegible_courses[f"{index}. {tuples[0]} credits required from: "]=get_selected_courses(tuples[1],semester)
+            completely_elegible_courses[f"{index}. {tuples[0]} credits required from: "]=get_selected_courses(tuples[1],semester,filtered_courses)
     for tuples in incomplete_courses:
         if len(tuples[1])>1:
             for key in tuples[1]:
@@ -785,8 +768,7 @@ def pre_req_comments(filtered_courses):
         for course in prereq_dict:
             if key == course:
                 comments = prereq_dict[key].get("comments", "-")
-                usually_offered = prereq_dict[key].get("usually_offered_semseter", "-")
-                
+                usually_offered = prereq_dict[key].get("usually_offered_semester", "-")
                 # Replace NaN values with "-"
                 if isinstance(comments, float) and math.isnan(comments):
                     comments = "-"
@@ -794,7 +776,7 @@ def pre_req_comments(filtered_courses):
                     usually_offered = "-"
 
                 filtered_courses[key]["comments"] = comments
-                filtered_courses[key]["usually_offered_semseter"] = usually_offered
+                filtered_courses[key]["usually_offered_semester"] = usually_offered
     return filtered_courses
 
 
@@ -840,6 +822,7 @@ async def course_suggestion(degree_audit,term):
         for course in course_list:
             if re.match(r"[A-Z]{4} \d{4}", course):
                 prereq_info = prereq_dict.get(course)
+                print(prereq_info)
                 if prereq_info:
                     prereq_str = prereq_info.get('prerequisites', '')
                     # Extract all course codes from prereq_str (could be multiple)
@@ -849,24 +832,19 @@ async def course_suggestion(degree_audit,term):
                         elegible_prereq_courses.append(course)
                 else:
                     elegible_prereq_courses.append(course)
-
     # Filter courses offered in the input semester
     try:
         filtered_courses,semester = filter_courses_by_semester(courses_dict, semester,elegible_prereq_courses)
     except ValueError as e:
         return JSONResponse(status_code=400, content={"message": str(e)})
-    # print(f"Courses offered in {semester}: \n{filtered_courses}")
+    filtered_courses=pre_req_comments(filtered_courses)
     multiple_courses_dict=multipleCourses(completed_courses,incomplete_groups,filtered_courses,semester)
-    filtered_courses=(pre_req_comments(filtered_courses))
-    # print(multiple_sections(filtered_courses,semester))
-    # print(final_courses_dictionary(filtered_courses,multiple_courses_dict))
     final_courses_dictionary(filtered_courses,multiple_courses_dict)
     sections=multiple_sections(filtered_courses,semester)
     groups_sections=gropus_multiple_sections(filtered_courses,semester)
     for course, course_details in filtered_courses.items():
         if "credits required from:" in course:
             filtered_courses[course]=groups_final_courses_dictionary(course_details,groups_sections)
-    # print(groups_sections)
     result=final_courses_dictionary(filtered_courses,sections)
     grades= student_grades(completed_courses)
     multiple_prereqs=prerequesites_dict()
