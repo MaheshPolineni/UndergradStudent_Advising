@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Course Registration</title>
+  <link rel="icon" href="data:,">
+  <style>
+    h1, h2 {
+      text-align: center;
+    }
+    body {
+      font-family: "Segoe UI", Tahoma, sans-serif;
+      background: linear-gradient(135deg, #eef2f3, #8e9eab);
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+    }
+
+    .container {
+      width: 90%;
+      max-width: 850px;
+      background: #fff;
+      margin-top: 50px;
+      padding: 30px;
+      border-radius: 16px;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+    }
+
+    h1 {
+      text-align: center;
+      margin-bottom: 25px;
+      color: #222;
+      letter-spacing: 0.5px;
+    }
+
+    form {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+      margin-bottom: 20px;
+    }
+
+    label {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: #444;
+    }
+
+    input[type="text"],
+    input[type="file"],
+    select {
+      padding: 12px 14px;
+      font-size: 1rem;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      background-color: #f9f9f9;
+      transition: 0.2s ease;
+      width: 100%;
+    }
+
+    input[type="text"]:focus,
+    input[type="file"]:focus,
+    select:focus {
+      outline: none;
+      border-color: #007bff;
+      background-color: #fff;
+      box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+    }
+
+    button {
+      padding: 12px;
+      background: linear-gradient(135deg, #007bff, #0056b3);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 1rem;
+      font-weight: 600;
+    }
+
+    button:hover {
+      background: linear-gradient(135deg, #0056b3, #00408f);
+    }
+
+    .filters {
+      display: flex;
+      gap: 15px;
+      margin-top: 10px;
+      margin-bottom: 25px;
+      background: #f7f9fb;
+      padding: 12px 15px;
+      border-radius: 16px;
+      border: 1px solid #e0e0e0;
+      justify-content: space-between;
+    }
+
+    .filters select {
+      flex: 1;
+      background: white;
+      border: 1px solid #ccc;
+      border-radius: 30px;
+      padding: 10px 14px;
+      font-size: 0.95rem;
+      cursor: pointer;
+    }
+
+    #response {
+      display: none;
+      margin-top: 10px;
+    }
+
+    .error {
+      background-color: #ffe5e5;
+      border: 1px solid #ffcccc;
+      color: #cc0000;
+      padding: 15px;
+      border-radius: 8px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      margin-top: 15px;
+      border-radius: 10px;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+    }
+
+    th, td {
+      padding: 12px 14px;
+      text-align: left;
+    }
+
+    th {
+      background-color: #007bff;
+      color: white;
+      font-weight: 600;
+      font-size: 0.95rem;
+    }
+
+    td {
+      background-color: white;
+      font-size: 0.9rem;
+    }
+
+    tbody tr:nth-child(even) td {
+      background-color: #f8faff;
+    }
+
+    tbody tr:hover td {
+      background-color: #eaf3ff;
+    }
+
+    td[title] {
+      cursor: pointer;
+      text-decoration: underline dotted;
+    }
+
+    caption {
+      font-weight: 600;
+      margin-bottom: 8px;
+      text-align: left;
+      color: #333;
+    }
+
+    /* ✅ Force bright yellow background for highlighted rows */
+    tr.highlight-single-semester,
+    tr.highlight-single-semester td {
+      background-color: #fff4a3 !important; /* bright yellow */
+      color: #000 !important; /* ensure text is visible */
+    }
+
+tr.highlight-single-semester:hover td {
+  background-color: #ffe97a !important; /* slightly darker yellow on hover */
+}
+
+    @media (max-width: 600px) {
+      .filters {
+        flex-direction: column;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1 style="color:red;">Lamar University Undergrad Advising</h1>
+    <h2>The given courses are eligible to take by the student</h2>
+    <form id="registration-form" enctype="multipart/form-data">
+      <label for="term">Provide the Term:</label>
+      <input type="text" id="term" name="term" required placeholder="e.g. Spring 2025" />
+
+      <label for="file">Upload the Latest Degree Work:</label>
+      <input type="file" id="file" name="file" accept=".csv,.txt,.pdf,.docx" required />
+
+      <button type="submit">Submit</button>
+    </form>
+
+    <div class="filters" id="filters" style="display:none;">
+      <select id="modeFilter">
+        <option value="">All Modes</option>
+      </select>
+      <select id="partFilter">
+        <option value="">All Parts of Term</option>
+        <option value="1">1 — Full Term</option>
+        <option value="2">2 — First Half Term</option>
+        <option value="3">3 — Second Half Term</option>
+        <option value="11">11 — First Five Week</option>
+        <option value="12">12 — Second Five Week</option>
+        <option value="13">13 — Third Five Week</option>
+      </select>
+    </div>
+
+    <div id="response"></div>
+  </div>
+
+  <script>
+    document.getElementById("registration-form").addEventListener("submit", async function (event) {
+      event.preventDefault();
+      const term = document.getElementById("term").value.trim();
+      const file = document.getElementById("file").files[0];
+
+      if (!term || !file) {
+        displayResponse("Please enter a term and upload a file.", true);
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append("term", term);
+      formData.append("file", file);
+
+      let result;
+
+      try {
+        const response = await fetch("https://lunar-unsanguinely-rayford.ngrok-free.dev/course_registration_details", {
+          method: "POST",
+          body: formData,
+        });
+        
+        if (!response.ok) throw new Error(`Server error: ${response.status}`);
+
+        result = await response.json();
+        displayResponse(result.message || result);
+      } catch (error) {
+        displayResponse(result?.message?.body || "An error occurred.", true);
+      }
+    });
+
+    // ====== Table Builder Function ======
+    function buildCourseTable(title, courseGroup, modes) {
+      let tableHTML = `
+        <table>
+          <caption>${title}</caption>
+          <thead>
+            <tr>
+              <th>Course Code</th>
+              <th>CRN</th>
+              <th>Course Title</th>
+              <th>Semester</th>
+              <th>Part of Term</th>
+              <th>Usually Offered Semester</th>
+              <th>Comments</th>
+            </tr>
+          </thead>
+          <tbody>
+      `;
+
+      for (const [courseCode, courseData] of Object.entries(courseGroup)) {
+        if (typeof courseData !== "object") continue;
+
+        if (!courseData.course_title) {
+          const firstDetail = Object.values(courseData)[0];
+          const allCrns = Object.entries(courseData)
+            .map(([crn, details]) => {
+              const crnInfo = `CRN: ${crn}
+              Course: ${details.course_title}
+              Semester: ${details.semester_offered}
+              Part: ${details.part_of_term}
+              Mode: ${details.mode}
+              Begin_time:${details.begin_time}
+              End_time:${details.end_time}
+              Faculty:${details.faculty}
+              Available_seats:${details.available_seats}`;
+              modes.add(details.mode);
+              return `<span title="${crnInfo}">${crn}</span>`;
+            })
+            .join(", ");
+
+          const usuallyOffered = firstDetail.usually_offered_semester || '-';
+          const highlightClass =
+            usuallyOffered !== '-' && !usuallyOffered.includes(',')
+              ? 'highlight-single-semester'
+              : '';
+
+          tableHTML += `
+            <tr class="${highlightClass}">
+              <td>${courseCode}</td>
+              <td>${allCrns}</td>
+              <td>${firstDetail.course_title}</td>
+              <td>${firstDetail.semester_offered}</td>
+              <td>${firstDetail.part_of_term}</td>
+              <td>${usuallyOffered}</td>
+              <td>${firstDetail.comments || '-'}</td>
+            </tr>
+          `;
+        } else {
+          const d = courseData;
+          modes.add(d.mode);
+
+          const usuallyOffered2 = d.usually_offered_semester || '-';
+          const highlightClass2 =
+            usuallyOffered2 !== '-' && !usuallyOffered2.includes(',')
+              ? 'highlight-single-semester'
+              : '';
+
+          tableHTML += `
+            <tr class="${highlightClass2}">
+              <td>${courseCode}</td>
+              <td>-</td>
+              <td>${d.course_title}</td>
+              <td>${d.semester_offered}</td>
+              <td>${d.part_of_term}</td>
+              <td>${usuallyOffered2}</td>
+              <td>${d.comments || '-'}</td>
+            </tr>
+          `;
+        }
+      }
+
+      tableHTML += "</tbody></table>";
+      return tableHTML;
+    }
+
+    // ====== Display Response ======
+    function displayResponse(message, isError = false) {
+      const responseDiv = document.getElementById("response");
+      responseDiv.style.display = "block";
+      responseDiv.className = isError ? "error" : "";
+      responseDiv.innerHTML = "";
+
+      if (isError || typeof message !== "object") {
+        responseDiv.textContent = typeof message === "string" ? message : JSON.stringify(message);
+        document.getElementById("filters").style.display = "none";
+        return;
+      }
+
+      const courses = message;
+      const modes = new Set();
+      let responseHTML = "";
+
+      const mainCourses = {};
+      for (const [key, val] of Object.entries(courses)) {
+        if (!key.includes("credits required")) mainCourses[key] = val;
+      }
+      if (Object.keys(mainCourses).length > 0) {
+        responseHTML += buildCourseTable("Main Courses List", mainCourses, modes);
+      }
+
+      for (const [reqKey, reqCourses] of Object.entries(courses)) {
+        if (reqKey.includes("credits required")) {
+          responseHTML += buildCourseTable(reqKey.split(". ")[1], reqCourses, modes);
+        }
+      }
+
+      responseDiv.innerHTML = responseHTML;
+      populateFilters(modes);
+    }
+
+    // ====== Filters ======
+    function populateFilters(modes) {
+      const modeFilter = document.getElementById("modeFilter");
+      modeFilter.innerHTML = '<option value="">All Modes</option>';
+      modes.forEach(mode => {
+        const opt = document.createElement("option");
+        opt.value = mode;
+        opt.textContent = mode;
+        modeFilter.appendChild(opt);
+      });
+      document.getElementById("filters").style.display = "flex";
+      modeFilter.onchange = filterTables;
+      document.getElementById("partFilter").onchange = filterTables;
+    }
+
+    // ====== Filtering Logic ======
+    function filterTables() {
+      const modeValue = document.getElementById("modeFilter").value.trim().toLowerCase();
+      const partValue = document.getElementById("partFilter").value.trim().toLowerCase();
+      const needMode = !!modeValue;
+      const needPart = !!partValue;
+
+      document.querySelectorAll("#response table tbody tr").forEach(row => {
+        const part = row.cells[4]?.textContent.trim().toLowerCase() || "";
+        const mode = row.cells[5]?.textContent.trim().toLowerCase() || "";
+        const crnSpans = row.cells[1]?.querySelectorAll("span") || [];
+
+        if (crnSpans.length > 0) {
+          let visibleCRNs = 0;
+
+          crnSpans.forEach(span => {
+            const crnTitle = (span.getAttribute("title") || "").toLowerCase();
+            const modeMatch = crnTitle.match(/mode:\s*([^|;,)]*)/i);
+            const crnMode = modeMatch ? modeMatch[1].trim().toLowerCase() : "";
+            const partMatch = crnTitle.match(/part:\s*([^|;,)]*)/i);
+            const crnPart = partMatch ? crnMatch[1].trim().toLowerCase() : "";
+
+            const matchMode = !needMode || crnMode.includes(modeValue) || mode.includes(modeValue);
+            const matchPart = !needPart || crnPart === partValue || part === partValue;
+
+            if (matchMode && matchPart) {
+              span.style.display = "";
+              visibleCRNs++;
+            } else {
+              span.style.display = "none";
+            }
+          });
+
+          row.style.display = visibleCRNs > 0 ? "" : "none";
+        } else {
+          const matchModeRow = !needMode || mode.includes(modeValue);
+          const matchPartRow = !needPart || part === partValue;
+          row.style.display = (matchModeRow && matchPartRow) ? "" : "none";
+        }
+      });
+    }
+  </script>
+</body>
+</html>

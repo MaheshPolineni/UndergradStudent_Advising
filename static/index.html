@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Home Page</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: 'Poppins', sans-serif;
+    }
+
+    body {
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: linear-gradient(135deg, #74ABE2, #5563DE);
+      color: #fff;
+    }
+
+    .container {
+      text-align: center;
+      background: rgba(255, 255, 255, 0.1);
+      padding: 40px 60px;
+      border-radius: 20px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+    }
+
+    h1 {
+      font-size: 2rem;
+      margin-bottom: 30px;
+    }
+
+    .btn {
+      display: inline-block;
+      width: 220px;
+      padding: 12px 20px;
+      margin: 10px;
+      background-color: #fff;
+      color: #333;
+      border: none;
+      border-radius: 30px;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    .btn:hover {
+      background-color: #333;
+      color: #fff;
+      transform: translateY(-3px);
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Welcome to the Portal</h1>
+    <button class="btn" id="courseBtn">Course Registration</button>
+    <button class="btn" id="otherBtn">Other</button>
+  </div>
+
+  <script>
+    // When clicked, open your Course Registration page
+    document.getElementById('courseBtn').addEventListener('click', function() {
+      window.location.href = 'static/course_registration_ug.html';  // ✅ Opens your 1st HTML file
+    });
+
+    // When clicked, open your Chatbot UI page
+    document.getElementById('otherBtn').addEventListener('click', function() {
+      window.location.href = 'static/chat_bot_ui.html';  // ✅ Opens your 2nd HTML file
+    });
+  </script>
+</body>
+</html>
