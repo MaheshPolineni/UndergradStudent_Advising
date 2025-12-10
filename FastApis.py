@@ -1,4 +1,6 @@
 from fastapi import FastAPI, UploadFile, File, Form,Depends,HTTPException,Header
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import session
 from Courses_Registration import course_suggestion
 from fastapi.middleware.cors import CORSMiddleware
@@ -15,6 +17,9 @@ import fitz  # PyMuPDF
 import shutil
 import uuid
 from ChatBot import user_chain,chat_bot
+from SurveyData import UserSurvey
+from DataBaseConn import get_db
+from sqlalchemy.ext.asyncio import AsyncSession
 
 app = FastAPI() 
 
@@ -82,6 +87,13 @@ def extract_text_from_pdf(pdf_path) -> str:
             text += page.get_text()
     return text
 
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+@app.get("/", response_class=HTMLResponse)
+def serve_home():
+    with open("static/index.html") as f:
+        return f.read()
+
 @app.post("/upload-pdf/")
 async def upload_pdf(file: UploadFile = File(...)):
     # Ensure it's a PDF
@@ -136,6 +148,15 @@ async def chat(request: ChatRequest):
     
     # 3. Return response + session_id
     return {"session_id": session_id, "response": response}
+
+
+@app.post("/survey")
+async def save_survey(survey: UserSurvey, db: AsyncSession = Depends(get_db)):
+    new_survey = UserSurvey(user_type=survey.user_type, id=survey.id ,email=survey.email, name=survey.name, course_suggestion=survey.course_suggestion,chatbot=survey.chatbot,features=survey.features, suggestions=survey.suggestions)
+    db.add(new_survey)
+    await db.commit()
+    await db.refresh(new_survey)  # refresh to get id from db
+    return "Thank you for the Survey!"
 
 
 # @app.post("/sign_up")
