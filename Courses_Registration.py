@@ -45,8 +45,8 @@ def course_active(result):
 
 
 
-course_list_path = "/home/bmt.lamar.edu/mpolineni/Latest_Class_Schedule.csv"         #'C:\\Users\\Mahesh\\Downloads\\CS_Class_Schedule.csv'   Replace with your actual path
-course_prereq_path = '/home/bmt.lamar.edu/mpolineni/course_prerequisites.csv'  # Replace with your actual path
+course_list_path = "/home/farha/Latest_Class_Schedule.csv"     #"/home/bmt.lamar.edu/mpolineni/Latest_Class_Schedule.csv"   
+course_prereq_path = '/home/farha/course_prerequisites.csv'  
 
 # Load the course list dataframe
 df_courses = pd.read_csv(course_list_path)
