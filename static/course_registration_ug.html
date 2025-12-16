@@ -386,45 +386,52 @@ tr.highlight-single-semester:hover td {
 
     // ====== Filtering Logic ======
     function filterTables() {
-      const modeValue = document.getElementById("modeFilter").value.trim().toLowerCase();
-      const partValue = document.getElementById("partFilter").value.trim().toLowerCase();
-      const needMode = !!modeValue;
-      const needPart = !!partValue;
+  const modeValue = document.getElementById("modeFilter").value.trim().toLowerCase();
+  const partValue = document.getElementById("partFilter").value.trim().toLowerCase();
+  const needMode = !!modeValue;
+  const needPart = !!partValue;
 
-      document.querySelectorAll("#response table tbody tr").forEach(row => {
-        const part = row.cells[4]?.textContent.trim().toLowerCase() || "";
-        const mode = row.cells[5]?.textContent.trim().toLowerCase() || "";
-        const crnSpans = row.cells[1]?.querySelectorAll("span") || [];
+  document.querySelectorAll("#response table tbody tr").forEach(row => {
+    const part = row.cells[4]?.textContent.trim().toLowerCase() || "";
+    const mode = row.cells[5]?.textContent.trim().toLowerCase() || "";
+    const crnSpans = row.cells[1]?.querySelectorAll("span") || [];
 
-        if (crnSpans.length > 0) {
-          let visibleCRNs = 0;
+    if (crnSpans.length > 0) {
+      let visibleCRNs = 0;
 
-          crnSpans.forEach(span => {
-            const crnTitle = (span.getAttribute("title") || "").toLowerCase();
-            const modeMatch = crnTitle.match(/mode:\s*([^|;,)]*)/i);
-            const crnMode = modeMatch ? modeMatch[1].trim().toLowerCase() : "";
-            const partMatch = crnTitle.match(/part:\s*([^|;,)]*)/i);
-            const crnPart = partMatch ? crnMatch[1].trim().toLowerCase() : "";
+      crnSpans.forEach(span => {
+        const crnTitle = (span.getAttribute("title") || "").toLowerCase();
+        
+        // Extract mode and part of term from the CRN tooltip
+        const modeMatch = crnTitle.match(/mode:\s*([^|;,)]*)/i);
+        const crnMode = modeMatch ? modeMatch[1].trim().toLowerCase() : "";
+        
+        const partMatch = crnTitle.match(/part:\s*([^|;,)]*)/i);
+        const crnPart = partMatch ? partMatch[1].trim().toLowerCase() : "";
 
-            const matchMode = !needMode || crnMode.includes(modeValue) || mode.includes(modeValue);
-            const matchPart = !needPart || crnPart === partValue || part === partValue;
+        // Match conditions
+        const matchMode = !needMode || crnMode.includes(modeValue);
+        const matchPart = !needPart || crnPart === partValue;
 
-            if (matchMode && matchPart) {
-              span.style.display = "";
-              visibleCRNs++;
-            } else {
-              span.style.display = "none";
-            }
-          });
-
-          row.style.display = visibleCRNs > 0 ? "" : "none";
+        if (matchMode && matchPart) {
+          span.style.display = "";
+          visibleCRNs++;
         } else {
-          const matchModeRow = !needMode || mode.includes(modeValue);
-          const matchPartRow = !needPart || part === partValue;
-          row.style.display = (matchModeRow && matchPartRow) ? "" : "none";
+          span.style.display = "none";
         }
       });
+
+      // If no visible CRNs, hide the row
+      row.style.display = visibleCRNs > 0 ? "" : "none";
+    } else {
+      // For rows without CRNs, match by mode and part alone
+      const matchModeRow = !needMode || mode.includes(modeValue);
+      const matchPartRow = !needPart || part === partValue;
+      row.style.display = (matchModeRow && matchPartRow) ? "" : "none";
     }
+  });
+}
+
   </script>
 </body>
 </html>

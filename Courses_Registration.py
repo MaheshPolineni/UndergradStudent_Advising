@@ -45,8 +45,8 @@ def course_active(result):
 
 
 
-course_list_path = "/home/farha/Latest_Class_Schedule.csv"     #"/home/bmt.lamar.edu/mpolineni/Latest_Class_Schedule.csv"   
-course_prereq_path = '/home/farha/course_prerequisites.csv'  
+course_list_path = "/home/bmt.lamar.edu/mpolineni/Latest_Class_Schedule.csv"     #"/home/bmt.lamar.edu/mpolineni/Latest_Class_Schedule.csv"   
+course_prereq_path = '/home/bmt.lamar.edu/mpolineni/course_prerequisites.csv'  
 
 # Load the course list dataframe
 df_courses = pd.read_csv(course_list_path)
@@ -806,32 +806,32 @@ async def main(path):
 # if __name__ == "__main__":
 async def course_suggestion(degree_audit,term):
     # Your main PDF parsing remains same
-    completed_courses, incomplete_groups = await main(degree_audit) #"C:\\Users\\Mahesh\\Downloads\\AB28RZ25 worksheet.pdf
+    completed_courses, incomplete_groups = await main(degree_audit) 
     completed_courses,incomplete_groups=mathCourses(completed_courses,incomplete_groups)
-    completed_courses = [
-    c for c in completed_courses
-    if not ((c['subject']+" "+c['number']) in ['COSC 1336', 'COSC 1337', 'COSC 2336'] and c.get('grade') not in ['A', 'B'])
-    ]
+
+
+    # completed_courses = [
+    # c for c in completed_courses
+    # if not ((c['subject']+" "+c['number']) in ['COSC 1336', 'COSC 1337', 'COSC 2336'] and c.get('grade') not in ['A', 'B'])
+    # ]
 
     semester = term
-
-
     completed_course_codes = {f"{c['subject']} {c['number']}" for c in completed_courses}
     elegible_prereq_courses=[]
     for credits, course_list in incomplete_groups:
         for course in course_list:
             if re.match(r"[A-Z]{4} \d{4}", course):
-                prereq_info = prereq_dict.get(course)
-                print(prereq_info)
-                if prereq_info:
-                    prereq_str = prereq_info.get('prerequisites', '')
-                    # Extract all course codes from prereq_str (could be multiple)
-                    prereq_courses = re.findall(r"[A-Z]{4} \d{4}", prereq_str)
-                    # Check if all prereqs are in completed courses
-                    if all(pr in completed_course_codes for pr in prereq_courses):
-                        elegible_prereq_courses.append(course)
-                else:
-                    elegible_prereq_courses.append(course)
+                elegible_prereq_courses.append(course)
+                # prereq_info = prereq_dict.get(course)
+                # if prereq_info:
+                #     prereq_str = prereq_info.get('prerequisites', '')
+                #     # Extract all course codes from prereq_str (could be multiple)
+                #     prereq_courses = re.findall(r"[A-Z]{4} \d{4}", prereq_str)
+                #     # Check if all prereqs are in completed courses
+                #     if all(pr in completed_course_codes for pr in prereq_courses):
+                #         elegible_prereq_courses.append(course)
+                # else:
+                #     elegible_prereq_courses.append(course)
     # Filter courses offered in the input semester
     try:
         filtered_courses,semester = filter_courses_by_semester(courses_dict, semester,elegible_prereq_courses)
@@ -851,13 +851,28 @@ async def course_suggestion(degree_audit,term):
 
 
     for course,prereq_courses in multiple_prereqs.items():
-        if "and" in prereq_courses or "or" in prereq_courses:
+        if "and" in prereq_courses or "or" in prereq_courses or "=" in prereq_courses:
             eligible = is_eligible_for_course(course, multiple_prereqs,grades)
             if eligible:
                 continue
             elif course in result:
                 del result[course]
+
+                
+            for courses in result:
+                if "credits required from" in courses:
+                    if course in result[courses]:
+                        del result[courses][course]
+
+    
+
+    # for course in result:
+    #     print(course)
+    #     if "credits required from" in course:
+    #         for courses in result[course]:
+    #             print(courses)
     # result=course_active(result)
+    # print(result)
     return result
 
 

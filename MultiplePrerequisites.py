@@ -2,7 +2,7 @@ import openpyxl
 import re
 
 # Grade ranking
-grade_order = {"A": 4, "B": 3, "C": 2, "D": 1, "F": 0}
+grade_order = {"A": 4, "TA": 4, "B": 3, "TB": 3, "C": 2, "TC": 2, "D": 1, "TD": 1, "F": 0, "S": 4, "TS": 4}
 
 def student_grades(completed_courses):
     actual_grades={}
@@ -28,7 +28,9 @@ def transform_expression(expr):
         return f'check_condition("{course}", "{operator}", "{grade}", student_grades)'
 
     # Capture full course codes like COSC 1337, MATH 2412, CPSC 2347
-    pattern = r'([A-Za-z]+\s*\d+)\s*(>=|>)\s*([A-F])'
+    # pattern = r'([A-Za-z]+\s*\d+)\s*(>=|>)\s*([A-F])'
+    pattern = r'([A-Za-z]+\s*\d+)\s*(>=|>)\s*(T?[A-FS])'
+
 
     transformed = re.sub(pattern, replacer, expr)
     return transformed
@@ -49,15 +51,4 @@ def is_eligible_for_course(course, prereqs, student_grades):
         print(f"   Transformed expression: {transformed_expr}")
         print(f"   Exception: {e}")
         return False
-
-# # ================================
-# # Example usage
-# # ================================
-# if __name__ == "__main__":
-#     prereqs = read_prereqs_excel('prereqs.xlsx', 'prereqs')
-#     student_grades = read_student_grades_excel('student_grades.xlsx', 'student_grades')
-
-#     for course in prereqs.keys():
-#         eligible = is_eligible_for_course(course, prereqs, student_grades)
-#         print(f"Eligible for {course}: {'YES' if eligible else 'NO'}")
-
+    
