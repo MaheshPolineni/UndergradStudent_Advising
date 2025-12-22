@@ -710,22 +710,25 @@ def filter_courses_by_semester(courses_dict, semester_input, course_code_list):
 
 
 
-def mathCourses(completed_courses,incomplete_courses):
+def mathCourses(completed_courses,incomplete_courses,non_elegible_courses):
     for c in completed_courses:
         if "MATH 2414" == (c['subject'] + " " + c['number']):
             for i in incomplete_courses:
                 for i_c in i[1]:
                     if i_c=="MATH 2413" or i_c=="MATH 2312" or i_c=="MATH 2311":
+                        non_elegible_courses[i_c]="Completed Upper Level MATH Courses"
                         incomplete_courses.remove(i)
         if "MATH 2413" == (c['subject'] + " " + c['number']):
             for i in incomplete_courses:
                 for i_c in i[1]:
                     if i_c=="MATH 2312" or i_c=="MATH 2311":
+                        non_elegible_courses[i_c]="Completed Upper Level MATH Courses"
                         incomplete_courses.remove(i)
         if "MATH 2312" == (c['subject'] + " " + c['number']):
             for i in incomplete_courses:
                 for i_c in i[1]:
                     if i_c=="MATH 2311":
+                        non_elegible_courses[i_c]="Completed Upper Level MATH Courses"
                         incomplete_courses.remove(i)
     return completed_courses, incomplete_courses
 
@@ -842,12 +845,16 @@ async def main(path):
 async def course_suggestion(degree_audit,term):
     # Your main PDF parsing remains same
     completed_courses, incomplete_groups = await main(degree_audit) 
-    completed_courses,incomplete_groups=mathCourses(completed_courses,incomplete_groups)
+    non_elegible_courses = {}
+    completed_courses,incomplete_groups=mathCourses(completed_courses,incomplete_groups,non_elegible_courses)
 
     semester = term
 
+    #for testing unelegible courses
+    # completed_courses=[{'subject': 'ENGL', 'number': '1301', 'title': 'COMPOSITION I', 'grade': 'TA', 'credits': 3.0, 'term': 'Fall 2016', 'status': 'Completed', 'section': 'If a student took a course that was part of the Texas Core Curriculum at the sending institution, Lamar University will recognize it here as core based on the'}, {'subject': 'FREN', 'number': '1311', 'title': 'Beginning French I', 'grade': 'B', 'credits': 3.0, 'term': 'Fall 2017', 'status': 'Completed', 'section': 'If a student took a course that was part of the Texas Core Curriculum at the sending institution, Lamar University will recognize it here as core based on the'}, {'subject': 'MATH', 'number': '2413', 'title': 'Calculus & Analytical Geom I', 'grade': 'A', 'credits': 1.0, 'term': 'Summer 2023', 'status': 'Completed', 'section': 'If a student took a course that was part of the Texas Core Curriculum at the sending institution, Lamar University will recognize it here as core based on the'}, {'subject': 'BIOL', 'number': '1407', 'title': 'Credits', 'grade': 'C', 'credits': 4.0, 'term': 'Fall 2017', 'status': 'Completed', 'section': 'Core Curriculum if NOT required for the degree.'}, {'subject': 'CHEM', 'number': '1311', 'title': 'Barrera Cribas, Francisco - *****4152', 'grade': 'C', 'credits': 3.0, 'term': 'Fall 2016', 'status': 'Completed', 'section': 'Core Curriculum if NOT required for the degree.'}, {'subject': 'CHEM', 'number': '1111', 'title': 'General Chemistry I Laboratory', 'grade': 'B', 'credits': 4.0, 'term': 'Fall 2016', 'status': 'Completed', 'section': 'Core Curriculum if NOT required for the degree.'}, {'subject': 'ENGL', 'number': '2331', 'title': 'Worl Literature', 'grade': 'TB', 'credits': 3.0, 'term': 'Spring 2017', 'status': 'Completed', 'section': 'required for Core Curriculum if NOT required for the degree.'}, {'subject': 'ARTS', 'number': '1301', 'title': 'Art Appreciation', 'grade': 'A', 'credits': 3.0, 'term': 'Fall 2016', 'status': 'Completed', 'section': 'required for Core Curriculum if NOT required for the degree.'}, {'subject': 'HIST', 'number': '1301', 'title': 'U S HISTORY I-1763-1877', 'grade': 'TB', 'credits': 6.0, 'term': 'Spring 2017', 'status': 'Completed', 'section': 'required for Core Curriculum if NOT required for the degree.'}, {'subject': 'HIS', 'number': '1763', 'title': '1877 - Lamar State College-Port Arthu', 'grade': 'TA', 'credits': 3.0, 'term': 'Spring 2023', 'status': 'Completed', 'section': 'required for Core Curriculum if NOT required for the degree.'}, {'subject': 'HIST', 'number': '1302', 'title': '', 'grade': 'TA', 'credits': 3.0, 'term': 'Spring 2023', 'status': 'Completed', 'section': 'required for Core Curriculum if NOT required for the degree.'}, {'subject': 'SINCE', 'number': '1877', 'title': '', 'grade': 'TA', 'credits': 3.0, 'term': 'Spring 2023', 'status': 'Completed', 'section': 'required for Core Curriculum if NOT required for the degree.'}, {'subject': 'POLS', 'number': '2301', 'title': 'AM GOVT I', 'grade': 'TB', 'credits': 6.0, 'term': 'Spring 2017', 'status': 'Completed', 'section': 'required for Core Curriculum if NOT required for the degree.'}, {'subject': 'POLS', 'number': '2302', 'title': 'GOVT2306 - INT TO STATE GOVT - Lamar State College-Port Arthu', 'grade': 'TB', 'credits': 3.0, 'term': 'Fall 2016', 'status': 'Completed', 'section': 'required for Core Curriculum if NOT required for the degree.'}, {'subject': 'ECON', 'number': '2302', 'title': 'PRIN OF ECONOMICS II (MICRO)', 'grade': 'TA', 'credits': 3.0, 'term': 'Summer 2017', 'status': 'Completed', 'section': 'required for Core Curriculum if NOT required for the degree.'}, {'subject': 'ENGL', 'number': '1302', 'title': 'COMPOSITION II', 'grade': 'TB', 'credits': 3.0, 'term': 'Summer 2017', 'status': 'Completed', 'section': 'required for Core Curriculum if NOT required for the degree.'}, {'subject': 'COMM', 'number': '1315', 'title': 'PUBLIC SPEAKING I', 'grade': 'TB', 'credits': 1.0, 'term': 'Spring 2018', 'status': 'Completed', 'section': 'required for Core Curriculum if NOT required for the degree.'}, {'subject': 'TRNS', 'number': '1000', 'title': 'SPCH1315 - PUBLIC SPEAKING - Lamar State College-Port Arthu', 'grade': 'TA', 'credits': 1100.0, 'term': '', 'status': 'Completed', 'section': 'required for Core Curriculum if NOT required for the degree.'}, {'subject': 'MATH', 'number': '2414', 'title': 'Mathematic Prerequisites for Computer Science', 'grade': 'C', 'credits': 4.0, 'term': 'Fall 2023', 'status': 'Completed', 'section': 'Prerequisites'}, {'subject': 'COSC', 'number': '1336', 'title': 'Fundamentals I', 'grade': 'A', 'credits': 3.0, 'term': 'Summer 2023', 'status': 'Completed', 'section': 'Unmet conditions for this set of requirements:'}, {'subject': 'COSC', 'number': '1172', 'title': 'Still needed', 'grade': 'A', 'credits': 1.0, 'term': '', 'status': 'Completed', 'section': 'Unmet conditions for this set of requirements:'}, {'subject': 'COSC', 'number': '1173', 'title': 'Programming Lab I', 'grade': 'A', 'credits': 1.0, 'term': 'Summer 2023', 'status': 'Completed', 'section': 'Unmet conditions for this set of requirements:'}, {'subject': 'COSC', 'number': '1174', 'title': 'Programming Lab II', 'grade': 'A', 'credits': 1.0, 'term': 'Fall 2023', 'status': 'Completed', 'section': 'Unmet conditions for this set of requirements:'}, {'subject': 'COSC', 'number': '1337', 'title': 'Fundamentals II', 'grade': 'A', 'credits': 3.0, 'term': 'Fall 2023', 'status': 'Completed', 'section': 'Unmet conditions for this set of requirements:'},{'subject': 'COSC', 'number': '2325', 'title': 'Computer Organization', 'grade': 'A', 'credits': 3.0, 'term': 'Fall 2023', 'status': 'Completed', 'section': 'Unmet conditions for this set of requirements:'}, {'subject': 'COSC', 'number': '2375', 'title': 'Discrete Structures', 'grade': 'A', 'credits': 3.0, 'term': 'Spring 2024', 'status': 'Completed', 'section': 'Unmet conditions for this set of requirements:'}, {'subject': 'COSC', 'number': '3302', 'title': 'Intro to Computer Theory', 'grade': 'A', 'credits': 3.0, 'term': 'Spring 2024', 'status': 'Completed', 'section': 'Unmet conditions for this set of requirements:'}, {'subject': 'COSC', 'number': '4272', 'title': 'Still needed', 'grade': 'B', 'credits': 2.0, 'term': '', 'status': 'Completed', 'section': 'Unmet conditions for this set of requirements:'}, {'subject': 'COSC', 'number': '3308', 'title': 'Programming Language', 'grade': 'B', 'credits': 3.0, 'term': 'Fall 2024', 'status': 'Completed', 'section': 'Unmet conditions for this set of requirements:'}, {'subject': 'COSC', 'number': '3325', 'title': 'Computer Law & Ethics', 'grade': 'A', 'credits': 3.0, 'term': 'Spring 2024', 'status': 'Completed', 'section': 'Unmet conditions for this set of requirements:'}, {'subject': 'COSC', 'number': '4302', 'title': 'Operating Systems', 'grade': 'A', 'credits': 3.0, 'term': 'Fall 2024', 'status': 'Completed', 'section': 'Unmet conditions for this set of requirements:'}, {'subject': 'COSC', 'number': '4310', 'title': 'Intro to Computer Architecture', 'grade': 'B', 'credits': 3.0, 'term': 'Fall 2024', 'status': 'Completed', 'section': 'Unmet conditions for this set of requirements:'}, {'subject': 'CPSC', 'number': '4317', 'title': 'Still needed', 'grade': 'B', 'credits': 3.0, 'term': '', 'status': 'Completed', 'section': 'Unmet conditions for this set of requirements:'}, {'subject': 'CPSC', 'number': '4340', 'title': 'Database Design', 'grade': 'B', 'credits': 3.0, 'term': 'Fall 2025', 'status': 'Completed', 'section': 'Unmet conditions for this set of requirements:'}, {'subject': 'CPSC', 'number': '4360', 'title': 'Software Engineering', 'grade': 'A', 'credits': 3.0, 'term': 'Spring 2025', 'status': 'Completed', 'section': 'Unmet conditions for this set of requirements:'}, {'subject': 'CPSC', 'number': '4363', 'title': 'Secure Software Engineering or Cybersecurity', 'grade': 'A', 'credits': 3.0, 'term': 'Fall 2024', 'status': 'Completed', 'section': 'Unmet conditions for this set of requirements:'}, {'subject': 'COSC', 'number': '4333', 'title': 'Still needed', 'grade': 'B', 'credits': 3.0, 'term': '', 'status': 'Completed', 'section': 'Unmet conditions for this set of requirements:'}, {'subject': 'MATH', 'number': '2318', 'title': 'Linear Algebra', 'grade': 'B', 'credits': 3.0, 'term': 'Spring 2025', 'status': 'Completed', 'section': 'MATH REQUIREMENTS'}, {'subject': 'COSC', 'number': '3306', 'title': 'COSC/CPSC/ELEN Upper-Level Elective', 'grade': 'A', 'credits': 3.0, 'term': 'Fall 2023', 'status': 'Completed', 'section': 'MATH REQUIREMENTS'}, {'subject': 'COSC', 'number': '4301', 'title': 'ST: Cloud Computing', 'grade': 'A', 'credits': 3.0, 'term': 'Fall 2023', 'status': 'Completed', 'section': 'MATH REQUIREMENTS'}, {'subject': 'CPSC', 'number': '4364', 'title': 'Barrera Cribas, Francisco - *****4152', 'grade': 'C', 'credits': 3.0, 'term': 'Summer 2025', 'status': 'Completed', 'section': 'MATH REQUIREMENTS'}, {'subject': 'ARTS', 'number': '2316', 'title': 'Academic Elective', 'grade': 'TA', 'credits': 3.0, 'term': 'Spring 2017', 'status': 'Completed', 'section': 'MATH REQUIREMENTS'}]
+    # incomplete_groups=[(1.0, ['COSC 1172']), (3.0, ['COSC 3304']),(3.0, ['COSC 2336']),(2.0, ['COSC 4272']), (3.0, ['CPSC 4317']), (3.0, ['COSC 4333']), (3.0, ['MATH 3370']), (3.0, ['COSC 3306', 'COSC 4301', 'COSC 4307', 'COSC 4309', 'COSC 4319', 'COSC 4322', 'COSC 4324', 'COSC 4345', 'CPSC 3316', 'CPSC 4315', 'CPSC 4316', 'CPSC 4361', 'CPSC 4320', 'CPSC 4330', 'CPSC 4370', 'ELEN 3381', 'ELEN 4486', 'ELEN 4387', 'ELEN 4304'])]
 
-
+    #for testing Prereq-course priority
     # completed_courses = [{'subject': 'ENGL', 'number': '1301', 'title': 'Composition I', 'grade': 'TA', 'credits': 6.0, 'term': 'Fall 2023', 'status': 'Completed', 'section': 'If a student took a course that was part of the Texas Core Curriculum at the sending institution, Lamar University will recognize it here as core based on the'}, {'subject': 'SPAN', 'number': '1311', 'title': '1', 'grade': 'TA', 'credits': 3.0, 'term': 'Summer 2024', 'status': 'Completed', 'section': 'If a student took a course that was part of the Texas Core Curriculum at the sending institution, Lamar University will recognize it here as core based on the'}, {'subject': 'MATH', 'number': '2413', 'title': 'CALC & ANALY GEOM I', 'grade': '', 'credits': 3.0, 'term': 'Summer 2025', 'status': 'Completed', 'section': 'If a student took a course that was part of the Texas Core Curriculum at the sending institution, Lamar University will recognize it here as core based on the'}, {'subject': 'PHYS', 'number': '2425', 'title': 'University Physics I', 'grade': 'TA', 'credits': 8.0, 'term': 'Spring 2025', 'status': 'Completed', 'section': 'If a student took a course that was part of the Texas Core Curriculum at the sending institution, Lamar University will recognize it here as core based on the'}, {'subject': 'BIOL', 'number': '1406', 'title': 'or 1407', 'grade': 'A', 'credits': 4.0, 'term': '', 'status': 'Completed', 'section': 'If a student took a course that was part of the Texas Core Curriculum at the sending institution, Lamar University will recognize it here as core based on the'}, {'subject': 'PHIL', 'number': '1370', 'title': 'Hours', 'grade': 'TA', 'credits': 3.0, 'term': 'Spring 2025', 'status': 'Completed', 'section': 'If a student took a course that was part of the Texas Core Curriculum at the sending institution, Lamar University will recognize it here as core based on the'}, {'subject': 'MUSI', 'number': '1306', 'title': 'MUSIC APPRECIATION', 'grade': 'TA', 'credits': 3.0, 'term': 'Spring 2025', 'status': 'Completed', 'section': 'If a student took a course that was part of the Texas Core Curriculum at the sending institution, Lamar University will recognize it here as core based on the'}, {'subject': 'HIST', 'number': '1301', 'title': 'US History I 1763-1877', 'grade': 'TA', 'credits': 6.0, 'term': 'Fall 2023', 'status': 'Completed', 'section': 'If a student took a course that was part of the Texas Core Curriculum at the sending institution, Lamar University will recognize it here as core based on the'}, {'subject': 'HIST', 'number': '1302', 'title': 'HIST1301 - UNITED STATES HISTORY I - Austin Community College', 'grade': 'TA', 'credits': 3.0, 'term': 'Fall 2024', 'status': 'Completed', 'section': 'If a student took a course that was part of the Texas Core Curriculum at the sending institution, Lamar University will recognize it here as core based on the'}, {'subject': 'POLS', 'number': '2301', 'title': 'AMERICAN GOVT I', 'grade': 'TA', 'credits': 6.0, 'term': 'Summer 2024', 'status': 'Completed', 'section': 'If a student took a course that was part of the Texas Core Curriculum at the sending institution, Lamar University will recognize it here as core based on the'}, {'subject': 'POLS', 'number': '2302', 'title': 'GOVT2306 - TX & LOCAL GOV - Austin Community College', 'grade': 'TA', 'credits': 3.0, 'term': 'Fall 2023', 'status': 'Completed', 'section': 'If a student took a course that was part of the Texas Core Curriculum at the sending institution, Lamar University will recognize it here as core based on the'}, {'subject': 'PSYC', 'number': '2301', 'title': 'Hours', 'grade': 'TA', 'credits': 3.0, 'term': 'Fall 2023', 'status': 'Completed', 'section': 'If a student took a course that was part of the Texas Core Curriculum at the sending institution, Lamar University will recognize it here as core based on the'}, {'subject': 'MATH', 'number': '2415', 'title': '090 Component Area Option', 'grade': 'TA', 'credits': 4.0, 'term': 'Spring 2024', 'status': 'Completed', 'section': 'If a student took a course that was part of the Texas Core Curriculum at the sending institution, Lamar University will recognize it here as core based on the'}, {'subject': 'MATH', 'number': '2312', 'title': 'Precalculus II', 'grade': '', 'credits': 3.0, 'term': 'Summer 2025', 'status': 'Completed', 'section': 'Prerequisites'}, {'subject': 'MATH', 'number': '2414', 'title': 'Calculus II', 'grade': '', 'credits': 4.0, 'term': 'Summer 2025', 'status': 'Completed', 'section': 'Prerequisites'}, {'subject': 'COSC', 'number': '1336', 'title': 'Programming Fund I', 'grade': 'TA', 'credits': 3.0, 'term': 'Fall 2023', 'status': 'Completed', 'section': 'Unmet conditions for this set of requirements:'}, {'subject': 'COSC', 'number': '1174', 'title': 'Still needed', 'grade': 'TA', 'credits': 1.0, 'term': '', 'status': 'Completed', 'section': 'Unmet conditions for this set of requirements:'}, {'subject': 'COSC', 'number': '1337', 'title': 'Programming Fund II', 'grade': 'TA', 'credits': 3.0, 'term': 'Spring 2024', 'status': 'Completed', 'section': 'Unmet conditions for this set of requirements:'},{'subject': 'COSC', 'number': '2325', 'title': 'Computer Organization', 'grade': 'TA', 'credits': 3.0, 'term': 'Spring 2025', 'status': 'Completed', 'section': 'Unmet conditions for this set of requirements:'}]
     # incomplete_groups = [(3.0, ['PHYS 1370']), (1.0, ['COSC 1172']), (1.0, ['COSC 1173']),(3.0,['COSC 2336']), (1.0, ['COSC 1174']), (3.0, ['COSC 2375']), (3.0, ['COSC 3302']), (3.0, ['COSC 3304']), (2.0, ['COSC 4272']), (3.0, ['COSC 3308']), (3.0, ['COSC 3325']), (3.0, ['COSC 4310']), (3.0, ['CPSC 4317']), (3.0, ['CPSC 4340']), (3.0, ['CPSC 4360']), (3.0, ['CPSC 4361', 'CPSC 4363', 'COSC 4345']), (3.0, ['COSC 4333']), (3.0, ['MATH 2318']), (3.0, ['MATH 3370']), (6.0, ['COSC 4301', 'COSC 4319','COSC 4345', 'CPSC 4315', 'CPSC 4330', 'CPSC 4370', 'CPSC 4375', 'ELEN 3381', 'ELEN 4486', 'ELEN 4387', 'ELEN 4304']), (6.0, ['COSC 3306', 'COSC 4301', 'COSC 4319', 'COSC 4345', 'CPSC 4315', 'CPSC 4361', 'CPSC 4330', 'CPSC 4363', 'CPSC 4370', 'CPSC 4375'])]
     # incomplete_groups=[(3.0, ['PHYS 1370']), (1.0, ['COSC 1172']), (1.0, ['COSC 1173']), (1.0, ['COSC 1174']), (3.0, ['COSC 2375']),(3.0, ['COSC 2336']), (3.0, ['COSC 3302']), (3.0, ['COSC 3308']), (3.0, ['COSC 3325']), (3.0, ['COSC 4310']), (3.0, ['CPSC 4361', 'CPSC 4363', 'COSC 4345']), (3.0, ['COSC 4333']), (3.0, ['MATH 2318']), (3.0, ['MATH 3370']), (6.0, ['COSC 4301', 'COSC 4324', 'COSC 4345', 'CPSC 4370', 'CPSC 4375', 'ELEN 3381', 'ELEN 4486', 'ELEN 4387', 'ELEN 4304']), (6.0, ['COSC 3306', 'COSC 4301', 'COSC 4324', 'COSC 4345', 'CPSC 4361', 'CPSC 4363', 'CPSC 4370', 'CPSC 4375'])]
@@ -871,11 +878,19 @@ async def course_suggestion(degree_audit,term):
                 # else:
                 #     elegible_prereq_courses.append(course)
     # Filter courses offered in the input semester
-
     try:
         filtered_courses,semester = filter_courses_by_semester(courses_dict, semester,elegible_prereq_courses)
     except ValueError as e:
         return JSONResponse(status_code=400, content={"message": str(e)})
+
+
+
+    for course in elegible_prereq_courses:
+        if course in filtered_courses:
+            continue
+        else:
+            non_elegible_courses[course]="S"
+
     filtered_courses=pre_req_comments(filtered_courses)
     multiple_courses_dict=multipleCourses(completed_courses,incomplete_groups,filtered_courses,semester)
     final_courses_dictionary(filtered_courses,multiple_courses_dict)
@@ -890,18 +905,21 @@ async def course_suggestion(degree_audit,term):
 
     prereq_course_count={}  
 
+
     for course,prereq_courses in multiple_prereqs.items():
         if "and" in prereq_courses or "or" in prereq_courses or "=" in prereq_courses:
             eligible = is_eligible_for_course(course, multiple_prereqs,grades)
             if eligible:
                 continue
             elif course in result:
+                non_elegible_courses[course]="P"
                 del result[course]
 
 
             for courses in result:
                 if "credits required from" in courses:
                     if course in result[courses]:
+                        non_elegible_courses[course]="P"
                         del result[courses][course]
             
 
@@ -947,12 +965,11 @@ async def course_suggestion(degree_audit,term):
                             continue
                         else:
                             prereq_course_count[single_extract_course]=[1]
-                            prereq_course_count[single_extract_course].append(course)
+                            prereq_course_count[single_extract_course].append(course)   
+
+
+    result["Non-Eligible-Courses"]=non_elegible_courses 
     
-
-    print(prereq_course_count)
-    # print(replace_course_keys(result,prereq_course_count))
-
     return replace_course_keys(result,prereq_course_count)
 
 
