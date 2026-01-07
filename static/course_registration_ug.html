@@ -167,16 +167,30 @@
       color: #333;
     }
 
-    /* ✅ Force bright yellow background for highlighted rows */
     tr.highlight-single-semester,
     tr.highlight-single-semester td {
-      background-color: #fff4a3 !important; /* bright yellow */
-      color: #000 !important; /* ensure text is visible */
+      background-color: #fff4a3 !important;
+      color: #000 !important;
     }
 
-tr.highlight-single-semester:hover td {
-  background-color: #ffe97a !important; /* slightly darker yellow on hover */
-}
+    tr.highlight-single-semester:hover td {
+      background-color: #ffe97a !important;
+    }
+
+    tr.prereq-one,
+    tr.prereq-one td {
+      background-color: #e8f4ff !important;
+    }
+
+    tr.prereq-two,
+    tr.prereq-two td {
+      background-color: #e8ffe8 !important;
+    }
+
+    tr.prereq-three-plus,
+    tr.prereq-three-plus td {
+      background-color: #fff0e0 !important;
+    }
 
     @media (max-width: 600px) {
       .filters {
@@ -239,7 +253,7 @@ tr.highlight-single-semester:hover td {
           method: "POST",
           body: formData,
         });
-        
+
         if (!response.ok) throw new Error(`Server error: ${response.status}`);
 
         result = await response.json();
@@ -249,7 +263,6 @@ tr.highlight-single-semester:hover td {
       }
     });
 
-    // ====== Table Builder Function ======
     function buildCourseTable(title, courseGroup, modes) {
       let tableHTML = `
         <table>
@@ -291,8 +304,8 @@ tr.highlight-single-semester:hover td {
 
           const usuallyOffered = firstDetail.usually_offered_semester || '-';
           const highlightClass =
-            usuallyOffered !== '-' && !usuallyOffered.includes(',')
-              ? 'highlight-single-semester'
+            usuallyOffered !== '-' && !usuallyOffered.includes(',') 
+              ? 'highlight-single-semester' 
               : '';
 
           tableHTML += `
@@ -312,8 +325,8 @@ tr.highlight-single-semester:hover td {
 
           const usuallyOffered2 = d.usually_offered_semester || '-';
           const highlightClass2 =
-            usuallyOffered2 !== '-' && !usuallyOffered2.includes(',')
-              ? 'highlight-single-semester'
+            usuallyOffered2 !== '-' && !usuallyOffered2.includes(',') 
+              ? 'highlight-single-semester' 
               : '';
 
           tableHTML += `
@@ -334,7 +347,6 @@ tr.highlight-single-semester:hover td {
       return tableHTML;
     }
 
-    // ====== Display Response ======
     function displayResponse(message, isError = false) {
       const responseDiv = document.getElementById("response");
       responseDiv.style.display = "block";
@@ -353,7 +365,7 @@ tr.highlight-single-semester:hover td {
 
       const mainCourses = {};
       for (const [key, val] of Object.entries(courses)) {
-        if (!key.includes("credits required")) mainCourses[key] = val;
+        if (!key.includes("credits required") && !key.includes("Non-Eligible-Courses")) mainCourses[key] = val;
       }
       if (Object.keys(mainCourses).length > 0) {
         responseHTML += buildCourseTable("Main Courses List", mainCourses, modes);
@@ -365,11 +377,42 @@ tr.highlight-single-semester:hover td {
         }
       }
 
+      if (courses["Non-Eligible-Courses"]) {
+        const nonEligibleCourses = courses["Non-Eligible-Courses"];
+        responseHTML += buildNonEligibleCoursesTable(nonEligibleCourses);
+      }
+
       responseDiv.innerHTML = responseHTML;
       populateFilters(modes);
+      applyPrerequisiteHighlighting();
     }
 
-    // ====== Filters ======
+    function buildNonEligibleCoursesTable(nonEligibleCourses) {
+      let tableHTML = `
+        <table>
+          <caption>Non-Eligible Courses</caption>
+          <thead>
+            <tr>
+              <th>Course Code</th>
+              <th>Reason</th>
+            </tr>
+          </thead>
+          <tbody>
+      `;
+
+      for (const [courseCode, reason] of Object.entries(nonEligibleCourses)) {
+        tableHTML += `
+          <tr>
+            <td>${courseCode}</td>
+            <td>${reason}</td>
+          </tr>
+        `;
+      }
+
+      tableHTML += "</tbody></table>";
+      return tableHTML;
+    }
+
     function populateFilters(modes) {
       const modeFilter = document.getElementById("modeFilter");
       modeFilter.innerHTML = '<option value="">All Modes</option>';
@@ -384,54 +427,67 @@ tr.highlight-single-semester:hover td {
       document.getElementById("partFilter").onchange = filterTables;
     }
 
-    // ====== Filtering Logic ======
     function filterTables() {
-  const modeValue = document.getElementById("modeFilter").value.trim().toLowerCase();
-  const partValue = document.getElementById("partFilter").value.trim().toLowerCase();
-  const needMode = !!modeValue;
-  const needPart = !!partValue;
+      const modeValue = document.getElementById("modeFilter").value.trim().toLowerCase();
+      const partValue = document.getElementById("partFilter").value.trim().toLowerCase();
+      const needMode = !!modeValue;
+      const needPart = !!partValue;
 
-  document.querySelectorAll("#response table tbody tr").forEach(row => {
-    const part = row.cells[4]?.textContent.trim().toLowerCase() || "";
-    const mode = row.cells[5]?.textContent.trim().toLowerCase() || "";
-    const crnSpans = row.cells[1]?.querySelectorAll("span") || [];
+      document.querySelectorAll("#response table tbody tr").forEach(row => {
+        const part = row.cells[4]?.textContent.trim().toLowerCase() || "";
+        const mode = row.cells[5]?.textContent.trim().toLowerCase() || "";
+        const crnSpans = row.cells[1]?.querySelectorAll("span") || [];
 
-    if (crnSpans.length > 0) {
-      let visibleCRNs = 0;
+        if (crnSpans.length > 0) {
+          let visibleCRNs = 0;
 
-      crnSpans.forEach(span => {
-        const crnTitle = (span.getAttribute("title") || "").toLowerCase();
-        
-        // Extract mode and part of term from the CRN tooltip
-        const modeMatch = crnTitle.match(/mode:\s*([^|;,)]*)/i);
-        const crnMode = modeMatch ? modeMatch[1].trim().toLowerCase() : "";
-        
-        const partMatch = crnTitle.match(/part:\s*([^|;,)]*)/i);
-        const crnPart = partMatch ? partMatch[1].trim().toLowerCase() : "";
+          crnSpans.forEach(span => {
+            const crnTitle = (span.getAttribute("title") || "").toLowerCase();
+            const modeMatch = crnTitle.match(/mode:\s*([^|;,)]*)/i);
+            const crnMode = modeMatch ? modeMatch[1].trim().toLowerCase() : "";
+            const partMatch = crnTitle.match(/part:\s*([^|;,)]*)/i);
+            const crnPart = partMatch ? partMatch[1].trim().toLowerCase() : "";
 
-        // Match conditions
-        const matchMode = !needMode || crnMode.includes(modeValue);
-        const matchPart = !needPart || crnPart === partValue;
+            const matchMode = !needMode || crnMode.includes(modeValue) || mode.includes(modeValue);
+            const matchPart = !needPart || crnPart === partValue || part === partValue;
 
-        if (matchMode && matchPart) {
-          span.style.display = "";
-          visibleCRNs++;
+            if (matchMode && matchPart) {
+              span.style.display = "";
+              visibleCRNs++;
+            } else {
+              span.style.display = "none";
+            }
+          });
+
+          row.style.display = visibleCRNs > 0 ? "" : "none";
         } else {
-          span.style.display = "none";
+          const matchModeRow = !needMode || mode.includes(modeValue);
+          const matchPartRow = !needPart || part === partValue;
+          row.style.display = (matchModeRow && matchPartRow) ? "" : "none";
         }
       });
-
-      // If no visible CRNs, hide the row
-      row.style.display = visibleCRNs > 0 ? "" : "none";
-    } else {
-      // For rows without CRNs, match by mode and part alone
-      const matchModeRow = !needMode || mode.includes(modeValue);
-      const matchPartRow = !needPart || part === partValue;
-      row.style.display = (matchModeRow && matchPartRow) ? "" : "none";
     }
-  });
-}
 
+
+function applyPrerequisiteHighlighting() { 
+document.querySelectorAll("#response table tbody tr").forEach(row => { const courseCodeCell = row.cells[0];
+if (!courseCodeCell) return; const text = courseCodeCell.textContent; 
+// Extract text inside parentheses 
+const match = text.match(/\(([^)]+)\)/); 
+if (!match) return; 
+// Count commas inside parentheses 
+const commaCount = (match[1].match(/,/g) || []).length; 
+// Remove old classes 
+row.classList.remove( "prereq-one", "prereq-two", "prereq-three-plus" ); 
+if (commaCount >= 3) { 
+row.classList.add("prereq-three-plus"); 
+} else if (commaCount === 2) { 
+row.classList.add("prereq-two"); 
+} else if (commaCount === 1) { 
+row.classList.add("prereq-one"); 
+} 
+});
+}
   </script>
 </body>
 </html>
