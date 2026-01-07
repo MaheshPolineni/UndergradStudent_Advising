@@ -176,7 +176,7 @@ async function sendMessage() {
     const typingDiv = showTypingIndicator(); // show typing
 
     try {
-        const response = await fetch('https://lunar-unsanguinely-rayford.ngrok-free.dev/chat', {
+        const response = await fetch('http://140.158.131.123/chat', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ session_id: sessionId, message })
