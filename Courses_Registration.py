@@ -11,6 +11,7 @@ from datetime import datetime, timedelta
 import math
 from fastapi.responses import JSONResponse
 from MultiplePrerequisites import student_grades,is_eligible_for_course
+import copy
 #####******courses_dict is not a dictionary it is a list of tuples
 # Load CSV files
 
@@ -25,46 +26,15 @@ def sanitize_value(value):
         return None
     return value
 
-def course_active(result):
-    course_crn =[]
-    multiple_courses_crns=[]
-    for course,course_details in result.items():
-        if "credits required from" not in course:
-            for crn, crn_details in course_details.items():
-                if crn_details['active_ind']=='I' or crn_details['active_ind']=='C':
-                    course_crn.append(crn)
-            for item in course_crn:
-                del course_details[crn]
-        # if "credits required from" in course:
-        #     for course_num,details in course_details.items():
-        #         for crn,crn_details in details.items():
-        #             if crn_details['active_ind']=='I' or crn_details['active_ind']=='C':
-        #                 del details[crn]    
-    return result
 
-
-
-
-course_list_path = "/home/farha/Latest_Class_Schedule.csv"      #"/home/bmt.lamar.edu/mpolineni/Latest_Class_Schedule.csv"   
-course_prereq_path = '/home/farha/course_prerequisites.csv'  
+course_list_path = "/home/farha/Latest_Class_Schedule1.csv"     #"/home/bmt.lamar.edu/mpolineni/Latest_Class_Schedule.csv"   
+course_prereq_path = '/home/farha/Merged_course_catalog_Final.csv'  
 
 # Load the course list dataframe
 df_courses = pd.read_csv(course_list_path)
 
 # Load the prerequisites dataframe
-df_prereqs = pd.read_csv(course_prereq_path)
-
-
-# def create_course_dictionary_from_df(df):
-#     course_dict = {}
-#     for _, row in df.iterrows():
-#         course_dict[row['Subject']+" "+str(row['Course'])] = {
-#             'course_title': row['Section_Title'],
-#             'semester_offered': row['Term'],
-#             'part_of_term':row['Part_of_Term'],
-#             'mode':row['SXRFIMODDesc'],
-#         }
-#     return course_dict
+df_prereqs = pd.read_csv(course_prereq_path,encoding="ISO-8859-1")
 
 def create_course_dictionary_from_df(df):
     course_dict = []
@@ -100,11 +70,39 @@ def prerequisite_course_dictionary_from_df(df):
 courses_dict = create_course_dictionary_from_df(df_courses)
 prereq_dict = prerequisite_course_dictionary_from_df(df_prereqs)
 
+
 def prerequesites_dict():
     prerequisites={}
     for course,details in prereq_dict.items():
         prerequisites[course]=details["prerequisites"]
     return prerequisites
+
+def course_grade_evaluation(completed_courses,incomplete_courses):
+    dup_completed_courses = copy.deepcopy(completed_courses)
+    grade_order = {"A": 4, "TA": 4, "B": 3, "TB": 3, "C": 2, "TC": 2, "D": 1, "TD": 1, "F": 0, "S": 4, "TS": 4,"INPR":4,'':4}
+    for courses in dup_completed_courses:
+        for prereqs,prereqs_data in prereq_dict.items():
+            if courses['subject']+" "+courses['number']==prereqs:
+                if not (grade_order[courses['grade']]>=grade_order[prereqs_data['passing_grade']]):
+                    incomplete_courses.append((courses['credits'],[courses['subject']+" "+courses['number']]))
+                    completed_courses.remove(courses)
+    return
+
+def satisfied_course_codes(completed_courses):
+    for taken_course in completed_courses:
+        taken_title = taken_course['title']
+
+        for catalog_key,catalog_course in prereq_dict.items():
+            catalog_title = catalog_course['course_title']
+
+            if taken_title == catalog_title:
+                if taken_course['subject']+" "+taken_course['number'] == catalog_key:
+                    continue
+                else:
+                    subject,number = catalog_key.split()
+                    taken_course['subject']=subject
+                    taken_course['number']=number
+    return completed_courses
 
 
 
@@ -168,18 +166,6 @@ def multiple_sections(filtered_courses, semester):
                 if code not in sections_dict:
                     sections_dict[code] = {}  
                 sections_dict[code][crn] = details
-        # if "credits required from:" in course:
-        #     for multiple_courses,course_details in details.items():
-        #         for code, name, course_semester, part_of_term, mode, crn in courses_dict:
-        #             if multiple_courses == code and course_semester.replace(" ", "").lower() == semester.lower(): 
-        #                 if code not in sections_dict:
-        #                     sections_dict[code] = {}  
-        #                 sections_dict[code][crn] = {
-        #                     'course_title': name,
-        #                     'semester_offered': course_semester,
-        #                     'part_of_term': part_of_term,
-        #                     'mode': mode
-        #                 }
     return sections_dict
 
 def gropus_multiple_sections(filtered_courses,semester):
@@ -197,15 +183,6 @@ def gropus_multiple_sections(filtered_courses,semester):
 
 # Assume course_dict is defined globally (outside the function)
 def get_selected_courses(course_keys,semester,filtered_courses):
-    """
-    Returns a dictionary of courses that match the given list of course keys.
-    
-    Parameters:
-    course_keys (list): A list of course codes (e.g., ['COSC 1172', 'CPSC 4375'])
-
-    Returns:
-    dict: A new dictionary with only the selected courses
-    """
     dicts={}
     for key in course_keys:
         for course,details in filtered_courses.items():
@@ -214,19 +191,6 @@ def get_selected_courses(course_keys,semester,filtered_courses):
                     if key==code and course_semester.replace(" ", "").lower()==semester:
                         dicts[key]=details
     return dicts
-
-# def filter_courses_by_semester(courses_dict, semester_input):
-#     semester_input = semester_input.lower().strip()
-#     if semester_input not in ['fall', 'spring']:
-#         raise ValueError("Invalid input. Please enter 'fall' or 'spring'")
-    
-#     filtered_courses = {}
-#     for course_code, details in courses_dict.items():
-#         offered = (details.get('semester_offered') or '').lower()
-#         if (semester_input == 'fall' and ('fall' in offered or 'fall/spring' in offered)) or \
-#            (semester_input == 'spring' and ('spring' in offered or 'fall/spring' in offered)):
-#             filtered_courses[course_code] = details
-#     return filtered_courses
 
 
 # ===============================
@@ -421,6 +385,8 @@ def extract_completed_courses_robust(text: str) -> List[Dict]:
             if code_same:
                 subject, number = code_same.group(1), code_same.group(2)
                 window = lines[max(0, i): min(n, i+8)]
+                if any("Still needded:" in item for item in window) or "Minimum credits unsatisfied" in window[0]:    #Added if block
+                    window=[]
                 rec = make_record(subject, number, window, current_section,
                                   title_hint=after[code_same.end()-code_same.start():])
                 if rec:
@@ -436,6 +402,8 @@ def extract_completed_courses_robust(text: str) -> List[Dict]:
                         subject, number = mcode.group(1), mcode.group(2)
                         window = lines[i: min(n, j+6)]
                         tail = lines[j][mcode.end():]
+                        if any("Still needed:" in item for item in window) or "Minimum credits unsatisfied" in window[0]:     #Added if block
+                            window=[]
                         rec = make_record(subject, number, window, current_section, title_hint=tail)
                         if rec:
                             results.append(rec)
@@ -452,6 +420,8 @@ def extract_completed_courses_robust(text: str) -> List[Dict]:
             subject, number = mcode.group(1), mcode.group(2)
             window = lines[max(0, i-1): min(n, i+6)]
             tail = line[mcode.end():]
+            if any("Still needed:" in item for item in window) or "Minimum credits unsatisfied" in window[0]:  #Added if block
+                window=[]
             rec = make_record(subject, number, window, current_section, title_hint=tail)
             if rec:
                 results.append(rec)
@@ -480,7 +450,7 @@ def extract_completed_courses_robust(text: str) -> List[Dict]:
 # ===============================
 # Parse "X Credits in/from ... or ..." groups (credit value + fully-qualified list)
 # ===============================
-def parse_credit_or_block(block: str) -> Tuple[float, List[str]]:
+def parse_credit_or_block(block: str,is_prereq: bool = False) -> Tuple[float, List[str],List[str]]:      #added is_prereq: bool = False, List[str]
     text = re.sub(r"[ \t]+", " ", block.strip())
     text = re.sub(r"\s*\n\s*", " ", text)
     m = re.search(r"(\d+(?:\.\d+)?)\s+Credits?\s+(?:in|from)\s+([A-Z]{4})\s?(\d{4})",
@@ -491,7 +461,14 @@ def parse_credit_or_block(block: str) -> Tuple[float, List[str]]:
     last_subject = m.group(2).upper()
     first_num = m.group(3)
 
+    prerequisite_accreditation: List[str] = []  # NEW: Separate list for prerequisite courses
+  
     courses: List[str] = [f"{last_subject} {first_num}"]
+
+    # NEW: Add to prerequisite list with suffix if is_prereq is True
+    if is_prereq:
+        prerequisite_accreditation.append(f"{last_subject} {first_num} (Prerequisite/Accreditation)")
+
     remainder = text[m.end():]
     token_re = re.compile(r"([A-Z]{4})\s?(\d{4})|\b(\d{4})\b")
     for t in token_re.finditer(remainder):
@@ -499,19 +476,37 @@ def parse_credit_or_block(block: str) -> Tuple[float, List[str]]:
         if num_full:
             last_subject = subj_full.upper()
             courses.append(f"{last_subject} {num_full}")
+            # NEW: Add to prerequisite list with suffix if is_prereq is True
+            if is_prereq:
+                prerequisite_accreditation.append(f"{last_subject} {num_full} (Prerequisite/Accreditation )")
+
         elif num_bare and last_subject:
             courses.append(f"{last_subject} {num_bare}")
+
+            # NEW: Add to prerequisite list with suffix if is_prereq is True
+            if is_prereq:
+                prerequisite_accreditation.append(f"{last_subject} {num_bare} (Prerequisite/Accreditation )")
 
     seen, out = set(), []
     for c in courses:
         if c not in seen:
             seen.add(c); out.append(c)
-    return credits, out
+    
+    #  Added Remove duplicates from prerequisite_accreditation list
+    seen_prereq, out_prereq = set(), []
+    for c in prerequisite_accreditation:
+        if c not in seen_prereq:
+            seen_prereq.add(c)
+            out_prereq.append(c)
 
-def extract_needed_or_groups_with_credits(text: str) -> List[Tuple[float, List[str]]]:
+    return credits, out, out_prereq
+
+def extract_needed_or_groups_with_credits(text: str) -> Tuple[List[Tuple[float, List[str]]], List[str]]:    #changed from List[Tuple[float, List[str]]]
     lines = text.splitlines()
     groups: List[Tuple[float, List[str]]] = []
+    all_prerequisite_courses: List[str] = []  # NEW: List to collect ALL prerequisite courses
     in_needed_block = False
+    in_prereq_accreditation_block =False   #Added
     current_block: List[str] = []
 
     def flush():
@@ -522,13 +517,31 @@ def extract_needed_or_groups_with_credits(text: str) -> List[Tuple[float, List[s
         if re.search(r"^\s*\d+(?:\.\d+)?\s+Credits?\s+(?:in|from)\s+[A-Z]{4}\s?\d{4}",
                      block_txt, re.IGNORECASE | re.MULTILINE):
             try:
-                groups.append(parse_credit_or_block(block_txt))
+                credits, courses, prereq_section=parse_credit_or_block(block_txt,is_prereq=in_prereq_accreditation_block)  #changed from groups.append(function)
+                groups.append((credits,courses))
+                # NEW: Collect prerequisite courses from this block
+                if in_prereq_accreditation_block:
+                    all_prerequisite_courses.extend(prereq_section)
+
             except Exception:
                 pass
         current_block = []
+        
 
-    for raw in lines:
+    for i,raw in enumerate(lines):
         line = raw.strip()
+
+
+        # >>> ADDED: detect entering Prerequisite section (if condition block)
+        if "prerequisite" in line.lower() and (lines[i+1]=="IN-PROGRESS" or lines[i+1]=="INCOMPLETE"):
+            in_prereq_accreditation_block = True
+            continue
+
+        # >>> ADDED: detect leaving Prerequisite section(if condition block)
+        if line.startswith("Major in") or line.startswith("Computer Game Development") or line.startswith("Cybersecurity"):
+            in_prereq_accreditation_block = False
+
+
         if not line:
             flush()
             continue
@@ -552,120 +565,7 @@ def extract_needed_or_groups_with_credits(text: str) -> List[Tuple[float, List[s
                 flush()
                 continue
     flush()
-    return groups
-
-
-def prerequisite_course_dictionary(json_data):
-    """
-    Creates a dictionary containing only courses that have prerequisites,
-    with course codes as keys and course details as values.
-    
-    Args:
-        json_data: The loaded JSON data
-        
-    Returns:
-        A dictionary with course codes as keys and course details as values
-        (only includes courses that have prerequisites)
-    """
-    course_dict = {}
-    
-    # Iterate through all bundles and courses
-    for bundle in json_data['bundles_list']:
-        if 'courses' in bundle:
-            for course in bundle['courses']:
-                # Check for prerequisites (handling different key spellings)
-                prereq_keys = ['Pre-requisites', 'pre-requisites', 'Prerequisites', 'prerequisites']
-                prerequisites = None
-                
-                for key in prereq_keys:
-                    if key in course:
-                        prerequisites = course[key]
-                        break
-                
-                # Only add courses that have prerequisites
-                if prerequisites:
-                    course_details = {
-                        'course_title': course.get('course_title') or course.get('course_name'),
-                        'credit_hours': course.get('credit_hours'),
-                        'semester_offered': course.get('semester_offered'),
-                        'prerequisites': prerequisites,
-                        'bundle_id': bundle.get('bundle_id'),
-                        'bundle_name': bundle.get('bundle_name')
-                    }
-                    course_dict[course['course_code']] = course_details
-    
-    return course_dict
-
-
-def create_course_dictionary(json_data):
-    """
-    Creates a dictionary of courses with course codes as keys and course details as values.
-    
-    Args:
-        json_data: The loaded JSON data
-        
-    Returns:
-        A dictionary with course codes as keys and course details as values
-    """
-    course_dict = {}
-    
-    # Iterate through all bundles and courses
-    for bundle in json_data['bundles_list']:
-        if 'courses' in bundle:
-            for course in bundle['courses']:
-                # Standardize the course details structure
-                course_details = {
-                    'course_title': course.get('course_title') or course.get('course_name'),
-                    'credit_hours': course.get('credit_hours'),
-                    'semester_offered': course.get('semester_offered'),
-                    'prerequisites': None
-                }
-                
-                # Handle prerequisites (check for different key spellings)
-                prereq_keys = ['Pre-requisites', 'pre-requisites', 'Prerequisites', 'prerequisites']
-                for key in prereq_keys:
-                    if key in course:
-                        course_details['prerequisites'] = course[key]
-                        break
-                
-                # Add to dictionary with course code as key
-                course_dict[course['course_code']] = course_details
-    
-    return course_dict
-
-# def filter_courses_by_semester(courses_dict, semester_input, course_code_list):
-#     """
-#     Filters courses based on a provided list of course codes and semester input.
-
-#     Args:
-#         courses_dict (dict): Dictionary of all courses (from create_course_dictionary)
-#         semester_input (str): User input ('fall' or 'spring')
-#         course_code_list (list): List of course codes to filter from the dictionary
-
-#     Returns:
-#         dict: Filtered dictionary {course_code: course_details}
-#     """
-#     # Normalize user input
-#     semester_input = semester_input.lower().strip()
-
-#     # Validate input
-#     if semester_input not in ['fall', 'spring']:
-#         raise ValueError("Invalid input. Please enter 'fall' or 'spring'")
-
-#     filtered_courses = {}
-
-#     for course_code in course_code_list:
-#         # Ensure course_code exists in dictionary
-#         if course_code in courses_dict:
-#             course_details = courses_dict[course_code]
-#             if 'semester_offered' in course_details:
-#                 offered = course_details['semester_offered'].replace(" ","").lower()
-
-#                 if (semester_input == 'fall' and ('fall2025' in offered or 'fall2026' in offered)) or \
-#                    (semester_input == 'spring' and ('spring2025' in offered or 'spring2026' in offered)):
-#                     filtered_courses[course_code] = course_details.copy()
-
-#     return filtered_courses
+    return groups,all_prerequisite_courses
 
 
 def filter_courses_by_semester(courses_dict, semester_input, course_code_list):
@@ -730,7 +630,7 @@ def mathCourses(completed_courses,incomplete_courses,non_elegible_courses):
                     if i_c=="MATH 2311":
                         non_elegible_courses[i_c]="Completed Upper Level MATH Courses"
                         incomplete_courses.remove(i)
-    return completed_courses, incomplete_courses
+    return
 
 
 def multipleCourses(completed_courses,incomplete_courses,filtered_courses,semester):
@@ -800,6 +700,17 @@ def degree_process_time(text):
         raise Exception("Degree audit not up to date (older than 48 hours).")
 
 
+def math_calculus_prereq(incomplete_courses,prereqs):
+    math_1="MATH 2312"
+    math_2="MATH 1316"
+    math_3="MATH 2311"
+    math_4="MATH 1314"
+    if not any(math_1 in courses for _,courses in incomplete_courses) and not any(math_2 in courses for _,courses in incomplete_courses ):
+        prereqs["MATH 2413"]='No prerequisite'
+    if not any(math_3 in courses for _,courses in incomplete_courses) and not any(math_4 in courses for _,courses in incomplete_courses ):
+        prereqs["MATH 2312"]='No prerequisite'
+    return prereqs
+
 
 def pre_req_comments(filtered_courses):
     for key in filtered_courses:
@@ -817,72 +728,91 @@ def pre_req_comments(filtered_courses):
                 filtered_courses[key]["usually_offered_semester"] = usually_offered
     return filtered_courses
 
+def prerequisite_accreditation_block(course_data, course_replacements):
+    updated_data = {}
+    # Iterate through each course in the original data
+    for course_code, sections in course_data.items():
+        course_replacement_found = False
+
+        # Check if the current course code is in the replacement dictionary
+        for prereq_course in course_replacements:
+            extracted_course = prereq_course.split(' (')[0]  # Clean up course code
+
+            if course_code == extracted_course or course_code.split(' (')[0]==extracted_course:
+                # Replace the course code with the new one from the replacement list
+                new_course_code = prereq_course
+                if "(" in course_code:
+                    new_course_code = course_code+" / (Prerequisite/Accreditation)"
+                updated_data[new_course_code] = sections
+                course_replacement_found = True
+                break  # Once a match is found, no need to check further
+
+        if not course_replacement_found:
+            # No replacement found, keep the original course data
+            updated_data[course_code] = sections
+
+        # Handle the case where credits are required from a different course
+        if "credits required from" in course_code:
+            for prereq_course in course_replacements:
+                extracted_course = prereq_course.split(' (')[0]
+
+                # Ensure we are modifying the dictionary correctly
+                if course_code in updated_data and isinstance(updated_data[course_code], dict):
+                    # Only modify if extracted_course is found in the sections of updated_data[course_code]
+                    #cgvhijookjkhjbhvgdhuicodjifhjbcuijdkcjikndcjkndcxjkn
+                    for course in updated_data[course_code]:
+                        if course == extracted_course or course.split(' (')[0]==extracted_course:
+                            or_course_Code = prereq_course
+                            if "(" in course:
+                                or_course_Code = course+" / (Prerequisite/Accreditation)"
+                            # Pop the old course and place it in the new course's location
+                            pop_course = updated_data[course_code].pop(course, None)
+                            if pop_course:
+                                updated_data[course_code][or_course_Code] = pop_course
+                                break  # Exit the loop once the course is found and handled
+
+
+    return updated_data
+
+
 
 async def main(path):
     pdf_file = path  # <-- adjust path
     print("🔄 Reading DegreeWorks PDF...")
     text =await extract_text_from_pdf(pdf_file)
-
-    text = cut_before_stop_section(text)
-
-
-    text=text.replace("1 Class", "3 Credits")
+    
+    # text = cut_before_stop_section(text)
+    text=text.replace("1 Class", "3 Credits").replace("2 Classes", "6 Credits").replace("3 Classes", "9 Credits").replace("4 Classes", "12 Credits")
     # degree_process_time(text)
-
-  
     completed = extract_completed_courses_robust(text)
 
     # Incomplete groups: list of tuples (credits_required, list_of_courses)
-    groups = extract_needed_or_groups_with_credits(text)
-    return completed, groups
+    groups,prereq_block = extract_needed_or_groups_with_credits(text)
+    return completed, groups, prereq_block
 
 
-    # Now you have:
-    # completed_courses -> List[Dict] with full course details      
-    # incomplete_groups -> List[Tuple[float, List[str]]] with credits + courses
-
-# if __name__ == "__main__":
 async def course_suggestion(degree_audit,term):
     # Your main PDF parsing remains same
-    completed_courses, incomplete_groups = await main(degree_audit) 
+    completed_courses, incomplete_groups, prereq_block = await main(degree_audit)
+    completed_courses=satisfied_course_codes(completed_courses)
+    course_grade_evaluation(completed_courses,incomplete_groups) 
     non_elegible_courses = {}
-    completed_courses,incomplete_groups=mathCourses(completed_courses,incomplete_groups,non_elegible_courses)
+    mathCourses(completed_courses,incomplete_groups,non_elegible_courses)
 
     semester = term
 
-    #for testing unelegible courses
-    # completed_courses=[{'subject': 'ENGL', 'number': '1301', 'title': 'COMPOSITION I', 'grade': 'TA', 'credits': 3.0, 'term': 'Fall 2016', 'status': 'Completed', 'section': 'If a student took a course that was part of the Texas Core Curriculum at the sending institution, Lamar University will recognize it here as core based on the'}, {'subject': 'FREN', 'number': '1311', 'title': 'Beginning French I', 'grade': 'B', 'credits': 3.0, 'term': 'Fall 2017', 'status': 'Completed', 'section': 'If a student took a course that was part of the Texas Core Curriculum at the sending institution, Lamar University will recognize it here as core based on the'}, {'subject': 'MATH', 'number': '2413', 'title': 'Calculus & Analytical Geom I', 'grade': 'A', 'credits': 1.0, 'term': 'Summer 2023', 'status': 'Completed', 'section': 'If a student took a course that was part of the Texas Core Curriculum at the sending institution, Lamar University will recognize it here as core based on the'}, {'subject': 'BIOL', 'number': '1407', 'title': 'Credits', 'grade': 'C', 'credits': 4.0, 'term': 'Fall 2017', 'status': 'Completed', 'section': 'Core Curriculum if NOT required for the degree.'}, {'subject': 'CHEM', 'number': '1311', 'title': 'Barrera Cribas, Francisco - *****4152', 'grade': 'C', 'credits': 3.0, 'term': 'Fall 2016', 'status': 'Completed', 'section': 'Core Curriculum if NOT required for the degree.'}, {'subject': 'CHEM', 'number': '1111', 'title': 'General Chemistry I Laboratory', 'grade': 'B', 'credits': 4.0, 'term': 'Fall 2016', 'status': 'Completed', 'section': 'Core Curriculum if NOT required for the degree.'}, {'subject': 'ENGL', 'number': '2331', 'title': 'Worl Literature', 'grade': 'TB', 'credits': 3.0, 'term': 'Spring 2017', 'status': 'Completed', 'section': 'required for Core Curriculum if NOT required for the degree.'}, {'subject': 'ARTS', 'number': '1301', 'title': 'Art Appreciation', 'grade': 'A', 'credits': 3.0, 'term': 'Fall 2016', 'status': 'Completed', 'section': 'required for Core Curriculum if NOT required for the degree.'}, {'subject': 'HIST', 'number': '1301', 'title': 'U S HISTORY I-1763-1877', 'grade': 'TB', 'credits': 6.0, 'term': 'Spring 2017', 'status': 'Completed', 'section': 'required for Core Curriculum if NOT required for the degree.'}, {'subject': 'HIS', 'number': '1763', 'title': '1877 - Lamar State College-Port Arthu', 'grade': 'TA', 'credits': 3.0, 'term': 'Spring 2023', 'status': 'Completed', 'section': 'required for Core Curriculum if NOT required for the degree.'}, {'subject': 'HIST', 'number': '1302', 'title': '', 'grade': 'TA', 'credits': 3.0, 'term': 'Spring 2023', 'status': 'Completed', 'section': 'required for Core Curriculum if NOT required for the degree.'}, {'subject': 'SINCE', 'number': '1877', 'title': '', 'grade': 'TA', 'credits': 3.0, 'term': 'Spring 2023', 'status': 'Completed', 'section': 'required for Core Curriculum if NOT required for the degree.'}, {'subject': 'POLS', 'number': '2301', 'title': 'AM GOVT I', 'grade': 'TB', 'credits': 6.0, 'term': 'Spring 2017', 'status': 'Completed', 'section': 'required for Core Curriculum if NOT required for the degree.'}, {'subject': 'POLS', 'number': '2302', 'title': 'GOVT2306 - INT TO STATE GOVT - Lamar State College-Port Arthu', 'grade': 'TB', 'credits': 3.0, 'term': 'Fall 2016', 'status': 'Completed', 'section': 'required for Core Curriculum if NOT required for the degree.'}, {'subject': 'ECON', 'number': '2302', 'title': 'PRIN OF ECONOMICS II (MICRO)', 'grade': 'TA', 'credits': 3.0, 'term': 'Summer 2017', 'status': 'Completed', 'section': 'required for Core Curriculum if NOT required for the degree.'}, {'subject': 'ENGL', 'number': '1302', 'title': 'COMPOSITION II', 'grade': 'TB', 'credits': 3.0, 'term': 'Summer 2017', 'status': 'Completed', 'section': 'required for Core Curriculum if NOT required for the degree.'}, {'subject': 'COMM', 'number': '1315', 'title': 'PUBLIC SPEAKING I', 'grade': 'TB', 'credits': 1.0, 'term': 'Spring 2018', 'status': 'Completed', 'section': 'required for Core Curriculum if NOT required for the degree.'}, {'subject': 'TRNS', 'number': '1000', 'title': 'SPCH1315 - PUBLIC SPEAKING - Lamar State College-Port Arthu', 'grade': 'TA', 'credits': 1100.0, 'term': '', 'status': 'Completed', 'section': 'required for Core Curriculum if NOT required for the degree.'}, {'subject': 'MATH', 'number': '2414', 'title': 'Mathematic Prerequisites for Computer Science', 'grade': 'C', 'credits': 4.0, 'term': 'Fall 2023', 'status': 'Completed', 'section': 'Prerequisites'}, {'subject': 'COSC', 'number': '1336', 'title': 'Fundamentals I', 'grade': 'A', 'credits': 3.0, 'term': 'Summer 2023', 'status': 'Completed', 'section': 'Unmet conditions for this set of requirements:'}, {'subject': 'COSC', 'number': '1172', 'title': 'Still needed', 'grade': 'A', 'credits': 1.0, 'term': '', 'status': 'Completed', 'section': 'Unmet conditions for this set of requirements:'}, {'subject': 'COSC', 'number': '1173', 'title': 'Programming Lab I', 'grade': 'A', 'credits': 1.0, 'term': 'Summer 2023', 'status': 'Completed', 'section': 'Unmet conditions for this set of requirements:'}, {'subject': 'COSC', 'number': '1174', 'title': 'Programming Lab II', 'grade': 'A', 'credits': 1.0, 'term': 'Fall 2023', 'status': 'Completed', 'section': 'Unmet conditions for this set of requirements:'},{'subject': 'COSC', 'number': '2325', 'title': 'Computer Organization', 'grade': 'A', 'credits': 3.0, 'term': 'Fall 2023', 'status': 'Completed', 'section': 'Unmet conditions for this set of requirements:'}, {'subject': 'COSC', 'number': '2375', 'title': 'Discrete Structures', 'grade': 'A', 'credits': 3.0, 'term': 'Spring 2024', 'status': 'Completed', 'section': 'Unmet conditions for this set of requirements:'}, {'subject': 'COSC', 'number': '3302', 'title': 'Intro to Computer Theory', 'grade': 'A', 'credits': 3.0, 'term': 'Spring 2024', 'status': 'Completed', 'section': 'Unmet conditions for this set of requirements:'}, {'subject': 'COSC', 'number': '4272', 'title': 'Still needed', 'grade': 'B', 'credits': 2.0, 'term': '', 'status': 'Completed', 'section': 'Unmet conditions for this set of requirements:'}, {'subject': 'COSC', 'number': '3308', 'title': 'Programming Language', 'grade': 'B', 'credits': 3.0, 'term': 'Fall 2024', 'status': 'Completed', 'section': 'Unmet conditions for this set of requirements:'}, {'subject': 'COSC', 'number': '3325', 'title': 'Computer Law & Ethics', 'grade': 'A', 'credits': 3.0, 'term': 'Spring 2024', 'status': 'Completed', 'section': 'Unmet conditions for this set of requirements:'}, {'subject': 'COSC', 'number': '4302', 'title': 'Operating Systems', 'grade': 'A', 'credits': 3.0, 'term': 'Fall 2024', 'status': 'Completed', 'section': 'Unmet conditions for this set of requirements:'}, {'subject': 'COSC', 'number': '4310', 'title': 'Intro to Computer Architecture', 'grade': 'B', 'credits': 3.0, 'term': 'Fall 2024', 'status': 'Completed', 'section': 'Unmet conditions for this set of requirements:'}, {'subject': 'CPSC', 'number': '4317', 'title': 'Still needed', 'grade': 'B', 'credits': 3.0, 'term': '', 'status': 'Completed', 'section': 'Unmet conditions for this set of requirements:'}, {'subject': 'CPSC', 'number': '4340', 'title': 'Database Design', 'grade': 'B', 'credits': 3.0, 'term': 'Fall 2025', 'status': 'Completed', 'section': 'Unmet conditions for this set of requirements:'}, {'subject': 'CPSC', 'number': '4360', 'title': 'Software Engineering', 'grade': 'A', 'credits': 3.0, 'term': 'Spring 2025', 'status': 'Completed', 'section': 'Unmet conditions for this set of requirements:'}, {'subject': 'CPSC', 'number': '4363', 'title': 'Secure Software Engineering or Cybersecurity', 'grade': 'A', 'credits': 3.0, 'term': 'Fall 2024', 'status': 'Completed', 'section': 'Unmet conditions for this set of requirements:'}, {'subject': 'COSC', 'number': '4333', 'title': 'Still needed', 'grade': 'B', 'credits': 3.0, 'term': '', 'status': 'Completed', 'section': 'Unmet conditions for this set of requirements:'}, {'subject': 'MATH', 'number': '2318', 'title': 'Linear Algebra', 'grade': 'B', 'credits': 3.0, 'term': 'Spring 2025', 'status': 'Completed', 'section': 'MATH REQUIREMENTS'}, {'subject': 'COSC', 'number': '3306', 'title': 'COSC/CPSC/ELEN Upper-Level Elective', 'grade': 'A', 'credits': 3.0, 'term': 'Fall 2023', 'status': 'Completed', 'section': 'MATH REQUIREMENTS'}, {'subject': 'COSC', 'number': '4301', 'title': 'ST: Cloud Computing', 'grade': 'A', 'credits': 3.0, 'term': 'Fall 2023', 'status': 'Completed', 'section': 'MATH REQUIREMENTS'}, {'subject': 'CPSC', 'number': '4364', 'title': 'Barrera Cribas, Francisco - *****4152', 'grade': 'C', 'credits': 3.0, 'term': 'Summer 2025', 'status': 'Completed', 'section': 'MATH REQUIREMENTS'}, {'subject': 'ARTS', 'number': '2316', 'title': 'Academic Elective', 'grade': 'TA', 'credits': 3.0, 'term': 'Spring 2017', 'status': 'Completed', 'section': 'MATH REQUIREMENTS'}]
-    # incomplete_groups=[(1.0, ['COSC 1172']), (3.0, ['COSC 3304']),(3.0, ['COSC 1337']),(3.0, ['COSC 2336']),(2.0, ['COSC 4272']), (3.0, ['CPSC 4317']), (3.0, ['COSC 4333']), (3.0, ['MATH 3370']), (3.0, ['COSC 3306', 'COSC 4301', 'COSC 4307', 'COSC 4309', 'COSC 4319', 'COSC 4322', 'COSC 4324', 'COSC 4345', 'CPSC 3316', 'CPSC 4315', 'CPSC 4316', 'CPSC 4361', 'CPSC 4320', 'CPSC 4330', 'CPSC 4370', 'ELEN 3381', 'ELEN 4486', 'ELEN 4387', 'ELEN 4304'])]
-    #for testing Prereq-course priority
-    # completed_courses = [{'subject': 'ENGL', 'number': '1301', 'title': 'Composition I', 'grade': 'TA', 'credits': 6.0, 'term': 'Fall 2023', 'status': 'Completed', 'section': 'If a student took a course that was part of the Texas Core Curriculum at the sending institution, Lamar University will recognize it here as core based on the'}, {'subject': 'SPAN', 'number': '1311', 'title': '1', 'grade': 'TA', 'credits': 3.0, 'term': 'Summer 2024', 'status': 'Completed', 'section': 'If a student took a course that was part of the Texas Core Curriculum at the sending institution, Lamar University will recognize it here as core based on the'}, {'subject': 'MATH', 'number': '2413', 'title': 'CALC & ANALY GEOM I', 'grade': '', 'credits': 3.0, 'term': 'Summer 2025', 'status': 'Completed', 'section': 'If a student took a course that was part of the Texas Core Curriculum at the sending institution, Lamar University will recognize it here as core based on the'}, {'subject': 'PHYS', 'number': '2425', 'title': 'University Physics I', 'grade': 'TA', 'credits': 8.0, 'term': 'Spring 2025', 'status': 'Completed', 'section': 'If a student took a course that was part of the Texas Core Curriculum at the sending institution, Lamar University will recognize it here as core based on the'}, {'subject': 'BIOL', 'number': '1406', 'title': 'or 1407', 'grade': 'A', 'credits': 4.0, 'term': '', 'status': 'Completed', 'section': 'If a student took a course that was part of the Texas Core Curriculum at the sending institution, Lamar University will recognize it here as core based on the'}, {'subject': 'PHIL', 'number': '1370', 'title': 'Hours', 'grade': 'TA', 'credits': 3.0, 'term': 'Spring 2025', 'status': 'Completed', 'section': 'If a student took a course that was part of the Texas Core Curriculum at the sending institution, Lamar University will recognize it here as core based on the'}, {'subject': 'MUSI', 'number': '1306', 'title': 'MUSIC APPRECIATION', 'grade': 'TA', 'credits': 3.0, 'term': 'Spring 2025', 'status': 'Completed', 'section': 'If a student took a course that was part of the Texas Core Curriculum at the sending institution, Lamar University will recognize it here as core based on the'}, {'subject': 'HIST', 'number': '1301', 'title': 'US History I 1763-1877', 'grade': 'TA', 'credits': 6.0, 'term': 'Fall 2023', 'status': 'Completed', 'section': 'If a student took a course that was part of the Texas Core Curriculum at the sending institution, Lamar University will recognize it here as core based on the'}, {'subject': 'HIST', 'number': '1302', 'title': 'HIST1301 - UNITED STATES HISTORY I - Austin Community College', 'grade': 'TA', 'credits': 3.0, 'term': 'Fall 2024', 'status': 'Completed', 'section': 'If a student took a course that was part of the Texas Core Curriculum at the sending institution, Lamar University will recognize it here as core based on the'}, {'subject': 'POLS', 'number': '2301', 'title': 'AMERICAN GOVT I', 'grade': 'TA', 'credits': 6.0, 'term': 'Summer 2024', 'status': 'Completed', 'section': 'If a student took a course that was part of the Texas Core Curriculum at the sending institution, Lamar University will recognize it here as core based on the'}, {'subject': 'POLS', 'number': '2302', 'title': 'GOVT2306 - TX & LOCAL GOV - Austin Community College', 'grade': 'TA', 'credits': 3.0, 'term': 'Fall 2023', 'status': 'Completed', 'section': 'If a student took a course that was part of the Texas Core Curriculum at the sending institution, Lamar University will recognize it here as core based on the'}, {'subject': 'PSYC', 'number': '2301', 'title': 'Hours', 'grade': 'TA', 'credits': 3.0, 'term': 'Fall 2023', 'status': 'Completed', 'section': 'If a student took a course that was part of the Texas Core Curriculum at the sending institution, Lamar University will recognize it here as core based on the'}, {'subject': 'MATH', 'number': '2415', 'title': '090 Component Area Option', 'grade': 'TA', 'credits': 4.0, 'term': 'Spring 2024', 'status': 'Completed', 'section': 'If a student took a course that was part of the Texas Core Curriculum at the sending institution, Lamar University will recognize it here as core based on the'}, {'subject': 'MATH', 'number': '2312', 'title': 'Precalculus II', 'grade': '', 'credits': 3.0, 'term': 'Summer 2025', 'status': 'Completed', 'section': 'Prerequisites'}, {'subject': 'MATH', 'number': '2414', 'title': 'Calculus II', 'grade': '', 'credits': 4.0, 'term': 'Summer 2025', 'status': 'Completed', 'section': 'Prerequisites'}, {'subject': 'COSC', 'number': '1336', 'title': 'Programming Fund I', 'grade': 'TA', 'credits': 3.0, 'term': 'Fall 2023', 'status': 'Completed', 'section': 'Unmet conditions for this set of requirements:'}, {'subject': 'COSC', 'number': '1174', 'title': 'Still needed', 'grade': 'TA', 'credits': 1.0, 'term': '', 'status': 'Completed', 'section': 'Unmet conditions for this set of requirements:'}, {'subject': 'COSC', 'number': '1337', 'title': 'Programming Fund II', 'grade': 'TA', 'credits': 3.0, 'term': 'Spring 2024', 'status': 'Completed', 'section': 'Unmet conditions for this set of requirements:'},{'subject': 'COSC', 'number': '2325', 'title': 'Computer Organization', 'grade': 'TA', 'credits': 3.0, 'term': 'Spring 2025', 'status': 'Completed', 'section': 'Unmet conditions for this set of requirements:'}]
-    # incomplete_groups = [(3.0, ['PHYS 1370']), (1.0, ['COSC 1172']), (1.0, ['COSC 1173']),(3.0,['COSC 2336']), (1.0, ['COSC 1174']), (3.0, ['COSC 2375']), (3.0, ['COSC 3302']), (3.0, ['COSC 3304']), (2.0, ['COSC 4272']), (3.0, ['COSC 3308']), (3.0, ['COSC 3325']), (3.0, ['COSC 4310']), (3.0, ['CPSC 4317']), (3.0, ['CPSC 4340']), (3.0, ['CPSC 4360']), (3.0, ['CPSC 4361', 'CPSC 4363', 'COSC 4345']), (3.0, ['COSC 4333']), (3.0, ['MATH 2318']), (3.0, ['MATH 3370']), (6.0, ['COSC 4301', 'COSC 4319','COSC 4345', 'CPSC 4315', 'CPSC 4330', 'CPSC 4370', 'CPSC 4375', 'ELEN 3381', 'ELEN 4486', 'ELEN 4387', 'ELEN 4304']), (6.0, ['COSC 3306', 'COSC 4301', 'COSC 4319', 'COSC 4345', 'CPSC 4315', 'CPSC 4361', 'CPSC 4330', 'CPSC 4363', 'CPSC 4370', 'CPSC 4375'])]
-    # incomplete_groups=[(3.0, ['PHYS 1370']), (1.0, ['COSC 1172']), (1.0, ['COSC 1173']), (1.0, ['COSC 1174']), (3.0, ['COSC 2375']),(3.0, ['COSC 2336']), (3.0, ['COSC 3302']), (3.0, ['COSC 3308']), (3.0, ['COSC 3325']), (3.0, ['COSC 4310']), (3.0, ['CPSC 4361', 'CPSC 4363', 'COSC 4345']), (3.0, ['COSC 4333']), (3.0, ['MATH 2318']), (3.0, ['MATH 3370']), (6.0, ['COSC 4301', 'COSC 4324', 'COSC 4345', 'CPSC 4370', 'CPSC 4375', 'ELEN 3381', 'ELEN 4486', 'ELEN 4387', 'ELEN 4304']), (6.0, ['COSC 3306', 'COSC 4301', 'COSC 4324', 'COSC 4345', 'CPSC 4361', 'CPSC 4363', 'CPSC 4370', 'CPSC 4375'])]
-    # incomplete_groups=[(3.0, ['PHYS 1370']), (1.0, ['COSC 1172']), (1.0, ['COSC 1173']), (1.0, ['COSC 1174']), (3.0, ['COSC 2375']),(3.0, ['COSC 2336']), (3.0, ['COSC 3302']), (3.0, ['COSC 3308']), (3.0, ['COSC 3325']), (3.0, ['COSC 4310']), (3.0, ['CPSC 4361', 'CPSC 4363', 'COSC 4345']), (3.0, ['COSC 4333']), (3.0, ['MATH 2318']), (3.0, ['MATH 3370']), (6.0, ['COSC 4301', 'COSC 4324', 'COSC 4345', 'CPSC 4375', 'ELEN 3381', 'ELEN 4486', 'ELEN 4387', 'ELEN 4304']), (6.0, ['COSC 3306', 'COSC 4301', 'COSC 4324', 'COSC 4345', 'CPSC 4361', 'CPSC 4363',  'CPSC 4375'])]
-    # incomplete_groups=[(3.0, ['PHYS 1370']), (1.0, ['COSC 1172']), (1.0, ['COSC 1173']), (1.0, ['COSC 1174']),(3.0, ['COSC 2336']), (3.0, ['COSC 3302']), (3.0, ['COSC 3308']), (3.0, ['COSC 3325']), (3.0, ['COSC 4310']), (3.0, ['CPSC 4361', 'CPSC 4363', 'COSC 4345']), (3.0, ['COSC 4333']), (3.0, ['MATH 2318']), (3.0, ['MATH 3370']), (6.0, ['COSC 4301', 'COSC 4324', 'COSC 4345', 'CPSC 4375', 'ELEN 3381', 'ELEN 4486', 'ELEN 4387', 'ELEN 4304']), (6.0, ['COSC 3306', 'COSC 4301', 'COSC 4324', 'COSC 4345', 'CPSC 4361', 'CPSC 4363',  'CPSC 4375'])]
-    
-    completed_course_codes = {f"{c['subject']} {c['number']}" for c in completed_courses}
+    completed_course_codes =[]
+    for c in completed_courses:
+        completed_course_codes.append({f"{c['subject']} {c['number']}"})
     elegible_prereq_courses=[]
     for credits, course_list in incomplete_groups:
         for course in course_list:
             if re.match(r"[A-Z]{4} \d{4}", course):
                 elegible_prereq_courses.append(course)
-                # prereq_info = prereq_dict.get(course)
-                # if prereq_info:
-                #     prereq_str = prereq_info.get('prerequisites', '')
-                #     # Extract all course codes from prereq_str (could be multiple)
-                #     prereq_courses = re.findall(r"[A-Z]{4} \d{4}", prereq_str)
-                #     # Check if all prereqs are in completed courses
-                #     if all(pr in completed_course_codes for pr in prereq_courses):
-                #         elegible_prereq_courses.append(course)
-                # else:
-                #     elegible_prereq_courses.append(course)
-    # Filter courses offered in the input semester
     try:
         filtered_courses,semester = filter_courses_by_semester(courses_dict, semester,elegible_prereq_courses)
     except ValueError as e:
         return JSONResponse(status_code=400, content={"message": str(e)})
-
-
 
     for course in elegible_prereq_courses:
         if course in filtered_courses:
@@ -902,22 +832,23 @@ async def course_suggestion(degree_audit,term):
     grades= student_grades(completed_courses)
     multiple_prereqs=prerequesites_dict()
 
+    math_calculus_prereq(incomplete_groups,multiple_prereqs)
     prereq_course_count={}  
 
-
+    dup_result = copy.deepcopy(result)
     for course,prereq_courses in multiple_prereqs.items():
         if "and" in prereq_courses or "or" in prereq_courses or "=" in prereq_courses:
             eligible = is_eligible_for_course(course, multiple_prereqs,grades)
             if eligible:
                 continue
-            elif course in result:
+            elif course.strip() in dup_result:
                 non_elegible_courses[course]="Not met with the Pre-requisite requirement"
                 del result[course]
 
 
-            for courses in result:
+            for courses in dup_result:
                 if "credits required from" in courses:
-                    if course in result[courses]:
+                    if course in dup_result[courses]:
                         non_elegible_courses[course]="Not met with the Pre-requisite requirement"
                         del result[courses][course]
             
@@ -965,11 +896,11 @@ async def course_suggestion(degree_audit,term):
                         else:
                             prereq_course_count[single_extract_course]=[1]
                             prereq_course_count[single_extract_course].append(course)   
+    
 
 
     result["Non-Eligible-Courses"]=non_elegible_courses 
-    
-    return replace_course_keys(result,prereq_course_count)
+    return prerequisite_accreditation_block(replace_course_keys(result,prereq_course_count),prereq_block)
 
 
 
